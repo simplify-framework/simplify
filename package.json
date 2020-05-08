@@ -1,0 +1,29 @@
+{
+  "name": "simplify-sdk",
+  "version": "0.1.2",
+  "description": "Simplify Framework SDK library for NodeJS",
+  "main": "simplify.js",
+  "dependencies": {
+    "aws-sdk": "^2.592.0",
+    "adm-zip": "^0.4.14"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/simplify-framework/simplify.git"
+  },
+  "keywords": [
+    "simplify",
+    "framework",
+    "kubernetes",
+    "devops",
+    "secops",
+    "iaas",
+    "aws"
+  ],
+  "author": "Duong Dinh Cuong",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/simplify-framework/simplify/issues"
+  },
+  "homepage": "https://github.com/simplify-framework/simplify#README"
+}

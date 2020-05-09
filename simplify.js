@@ -88,14 +88,14 @@ const createOrUpdateStack = function (options) {
                 "CAPABILITY_AUTO_EXPAND"
             ],
             EnableTerminationProtection: process.env.STACK_PROTECTION || false,
-            OnFailure: process.env.STACK_ON_FAILURE || "DELETE",
+            OnFailure: process.env.STACK_ON_FAILURE || "ROLLBACK",
             Parameters: getParameters(stackParameters),
             RollbackConfiguration: {
                 MonitoringTimeInMinutes: 0
             },
-            Tags: [{ Key: 'Framework', Value: 'simplify' }],
+            Tags: [{ Key: 'Framework', Value: 'Simplify' }],
             TemplateURL: stackTemplate,
-            TimeoutInMinutes: 150
+            TimeoutInMinutes: 15
         };
         adaptor.createStack(params, function (err, data) {
             if (err) {
@@ -135,7 +135,9 @@ const checkStackStatusOnComplete = function (options, stackData) {
                     currentStack.StackStatus == "UPDATE_ROLLBACK_COMPLETE" ||
                     currentStack.StackStatus == "CREATE_COMPLETE" ||
                     currentStack.StackStatus == "ROLLBACK_COMPLETE" ||
-                    currentStack.StackStatus == "DELETE_COMPLETE"
+                    currentStack.StackStatus == "ROLLBACK_FAILED" ||
+                    currentStack.StackStatus == "DELETE_COMPLETE" ||
+                    currentStack.StackStatus == "DELETE_FAILED"
                 )) {
                     resolve(currentStack) // resolve to FINISH
                 } else {
@@ -322,7 +324,8 @@ const createOrUpdateStackOnComplete = function (options) {
             const whileStatusIsPending = function () {
                 checkStackStatusOnComplete(options, data).then(function (data) {
                     console.log(`${opName}-Update: Done with ${data.StackStatus}`);
-                    if (data.StackStatus == "DELETE_COMPLETE" || data.StackStatus == "ROLLBACK_COMPLETE") {
+                    if (data.StackStatus == "DELETE_COMPLETE" || data.StackStatus == "DELETE_FAILED" ||
+                        data.StackStatus == "ROLLBACK_COMPLETE" || data.StackStatus == "ROLLBACK_FAILED") {
                         reject(data)
                     } else {
                         resolve(data)

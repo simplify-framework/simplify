@@ -9,7 +9,7 @@
     "Region": "us-east-1",
     "Bucket": {
         "Name": "lambdaFunctionName-deployment",
-        "Key": "builds/latest-build.zip"
+        "Key": "builds/${DATE_TODAY}/latest-build.zip"
     },
     "OutputFile": "function-meta.json",
     "Function": {

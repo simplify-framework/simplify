@@ -284,7 +284,7 @@ const createOrUpdateFunction = function (options) {
                         S3Key: bucketKey
                     }, function (err, data) {
                         if (err) {
-                            console.error(`${opName}-FunctionUpdate-ERROR: ${err}`);
+                            console.error(`${opName}-FunctionUpdated-ERROR: ${err}`);
                             reject(err)
                         } else {
                             console.log(`${opName}-FunctionUpdated: OK`);
@@ -300,10 +300,46 @@ const createOrUpdateFunction = function (options) {
                     S3Key: bucketKey
                 }, function (err, data) {
                     if (err) {
-                        console.error(`${opName}-FunctionUpdate-ERROR: ${err}`);
+                        console.error(`${opName}-FunctionUpdated-ERROR: ${err}`);
                         reject(err)
                     } else {
                         console.log(`${opName}-FunctionUpdated: OK`);
+                        resolve(data)
+                    }
+                })
+            }
+        });
+    })
+}
+
+const createFunctionLayerVersion = function (options) {
+    var { adaptor, opName, bucketName, bucketKey, functionConfig, layerConfig } = options
+    opName = opName || 'Simplify::createFunctionLayerVersion'
+    return new Promise(function (resolve, reject) {
+        var params = {
+            Content: {
+                S3Bucket: bucketName,
+                S3Key: bucketKey
+            },
+            ...layerConfig
+        };
+        console.log(`${opName}-CreateLayer...`);
+        adaptor.publishLayerVersion(params, function (err, data) {
+           if (err) {
+                console.error(`${opName}-LayerCreated-ERROR: ${err}`);
+                reject(err)
+            } else {
+                console.log(`${opName}-UpdateFunctionLayer...`);
+                adaptor.updateFunctionConfiguration({
+                    FunctionName: functionConfig.FunctionName,
+                    Layers: [ data.LayerVersionArn ],
+                    Environment: functionConfig.Environment
+                }, function (err, _) {
+                    if (err) {
+                        console.error(`${opName}-FunctionLayerUpdated-ERROR: ${err}`);
+                        reject(err)
+                    } else {
+                        console.log(`${opName}-FunctionLayerUpdated: OK`);
                         resolve(data)
                     }
                 })
@@ -353,6 +389,7 @@ module.exports = {
     uploadLocalDirectory,
     uploadDirectoryAsZip,
     createOrUpdateStack,
+    createFunctionLayerVersion,
     checkStackStatusOnComplete,
     createOrUpdateFunction,
     createOrUpdateStackOnComplete

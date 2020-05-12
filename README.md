@@ -9,7 +9,7 @@
     "Region": "us-east-1",
     "Bucket": {
         "Name": "lambdaFunctionName-deployment",
-        "Key": "builds/${DATE_TODAY}/latest-build.zip"
+        "Key": "builds/${DATE_TODAY}"
     },
     "OutputFile": "function-meta.json",
     "Function": {
@@ -20,11 +20,11 @@
         "Role": "arn:aws:iam::1234567890:role/lambdaFunctionRole",
         "Runtime": "nodejs12.x",
         "Tags": {
-            "MODE": "development"
+            "Group": "Simplify"
         },
         "Timeout": 15,
         "TracingConfig": {
-            "Mode": "Active"
+            "Mode": "PassThrough"
         },
         "Environment": {
             "Variables": {
@@ -41,38 +41,29 @@
 const path = require('path')
 const fs = require('fs')
 const simplify = require('simplify-sdk')
-const provider = require('simplify/provider')
+const provider = require('simplify-sdk/provider')
 
-var config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json')))
-provider.setConfig(config)
-simplify.zipFolderThenUpload({
-    adaptor: provider.getStorage(), ...{
-        bucketKey: config.Bucket.Key,
-        inputDirectory: path.join(__dirname, 'src'),
-        outputFilePath: config.OutputFile
-    }
-}).then(function (uploadInfor) {
-    simplify.createOrUpdateFunction({
-        adaptor: provider.getFunction(),
-        ...{
-            functionConfig: config.Function,
-            bucketName: config.Bucket.Name,
-            bucketKey: uploadInfor.bucketKey
+var config = simplify.getInputConfig(path.join(__dirname, 'config.json'))
+const functionConfig = config.Function
+const bucketName = config.Bucket.Name
+const bucketKey = config.Bucket.Key
+
+provider.setConfig(config) {
+    simplify.uploadDirectoryAsZip({
+        adaptor: provider.getStorage(), ...{
+            bucketKey, 'input/Directory', 'output/File/Path'
         }
-    }).then(function (data) {
-        console.log(`createLambdaFunction-WriteOutput: ${config.OutputFile}`);
-        fs.writeFileSync(path.join(__dirname, config.OutputFile), JSON.stringify({
-            FunctionName: data.FunctionName,
-            FunctionArn: data.FunctionArn,
-            LastModified: data.LastModified,
-            CodeSha256: data.CodeSha256,
-            RevisionId: data.RevisionId,
-            LastUpdateStatus: data.LastUpdateStatus,
-            LastUpdateStatusReason: data.LastUpdateStatusReason,
-            LastUpdateStatusReasonCode: data.LastUpdateStatusReasonCode
-        }, null, 4));
+    }).then(function (uploadInfor) {
+        simplify.createOrUpdateFunction({
+            adaptor: provider.getFunction(),
+            ...{ functionConfig, bucketName, bucketKey: uploadInfor.Key }
+        }).then(function (data) {
+            // Handle data response
+        }, function(err) {
+            console.error(`Update-ERROR: ${err}`);
+        })
     }, function(err) {
-        console.error(`createLambdaFunction-Upload-${CERROR}ERROR${CRESET}: ${err}`);
+        console.error(`UploadZip-ERROR: ${err}`);
     })
 })
 ```

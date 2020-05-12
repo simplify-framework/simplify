@@ -72,7 +72,7 @@ simplify.zipFolderThenUpload({
             LastUpdateStatusReasonCode: data.LastUpdateStatusReasonCode
         }, null, 4));
     }, function(err) {
-        console.error(`createLambdaFunction-Upload-ERROR: ${err}`);
+        console.error(`createLambdaFunction-Upload-${CERROR}ERROR${CRESET}: ${err}`);
     })
 })
 ```

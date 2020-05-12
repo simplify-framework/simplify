@@ -1,4 +1,7 @@
 const AWS = require('aws-sdk')
+const CBEGIN='\x1b[32m'
+const CERROR='\x1b[31m'
+const CRESET='\x1b[0m'
 var awsconfig = {
     Region: 'us-east-1'
 }
@@ -23,7 +26,7 @@ module.exports = {
                     reject(err)
                 } else {
                     AWS.config.update({ credentials: credentials });
-                    console.log(`AWSProvider-Credentials: ${AWS.config.credentials.profile ? AWS.config.credentials.profile : 'default'}`)
+                    console.log(`${CBEGIN}Simplify::${CRESET}AWSProvider-Credentials: ${AWS.config.credentials.profile ? AWS.config.credentials.profile : 'default'}`)
                     s3BucketParams.Bucket = config.Bucket.Name
                     if (config.Region != 'us-east-1') {
                         s3BucketParams.CreateBucketConfiguration = {
@@ -54,6 +57,12 @@ module.exports = {
     getFunction: function () {
         return new AWS.Lambda({
             apiVersion: '2015-03-31',
+            region: awsconfig.Region
+        })
+    },
+    getAPIGateway: function () {
+        return new AWS.APIGateway({
+            apiVersion: '2015-07-09',
             region: awsconfig.Region
         })
     }

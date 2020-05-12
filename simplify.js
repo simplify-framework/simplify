@@ -1,6 +1,9 @@
 const path = require('path')
 const fs = require('fs')
 const AdmZip = require('adm-zip')
+const CBEGIN = '\x1b[32m'
+const CERROR = '\x1b[31m'
+const CRESET = '\x1b[0m'
 /**
  * adaptor.createFunction(params, callback)
  * adaptor.updateFunctionConfiguration(params, callback)
@@ -38,12 +41,12 @@ const parseTemplate = function (...args) {
     var template = args.shift()
     function parseVariables(v) {
         Object.keys(process.env).map(function (e) {
-            v = v.replace(new RegExp('\\${'+e+'}', 'g'), process.env[e])
+            v = v.replace(new RegExp('\\${' + e + '}', 'g'), process.env[e])
         })
         args.forEach(function (a) {
             if (typeof a === 'object') {
                 Object.keys(a).map(function (i) {
-                    v = v.replace(new RegExp('\\${'+i+'}', 'g'), a[i])
+                    v = v.replace(new RegExp('\\${' + i + '}', 'g'), a[i])
                 })
             }
         })
@@ -68,7 +71,7 @@ const getInputConfig = function (...args) {
 
 const createOrUpdateStack = function (options) {
     var { adaptor, opName, stackName, stackParameters, stackTemplate } = options
-    opName = opName || 'Simplify::createOrUpdateStack'
+    opName = opName || `${CBEGIN}Simplify::${CRESET}createOrUpdateStack`
     function getParameters(params) {
         return Object.keys(params).map(function (k) {
             return {
@@ -119,7 +122,7 @@ const createOrUpdateStack = function (options) {
 
 const checkStackStatusOnComplete = function (options, stackData) {
     var { adaptor, opName } = options
-    opName = opName || 'Simplify::checkStackStatusOnComplete'
+    opName = opName || `${CBEGIN}Simplify::${CRESET}checkStackStatusOnComplete`
     return new Promise(function (resolve, reject) {
         var params = {
             StackName: stackData.StackId
@@ -150,7 +153,7 @@ const checkStackStatusOnComplete = function (options, stackData) {
 
 const uploadLocalDirectory = function (options) {
     var { adaptor, opName, bucketKey, inputDirectory } = options
-    opName = opName || 'Simplify::uploadLocalDirectory'
+    opName = opName || `${CBEGIN}Simplify::${CRESET}uploadLocalDirectory`
     return new Promise(function (resolve, reject) {
         adaptor.createBucket(function (err) {
             if (!err || (err.code == 'BucketAlreadyOwnedByYou')) {
@@ -170,7 +173,7 @@ const uploadLocalDirectory = function (options) {
                                     };
                                     adaptor.upload(params, function (err, data) {
                                         if (err) {
-                                            console.error(`${opName}-FileUpload-ERROR: ${err}`)
+                                            console.error(`${opName}-FileUpload-${CERROR}ERROR${CRESET}: ${err}`)
                                             reject(err)
                                         } else {
                                             fileInfos.push(data)
@@ -187,9 +190,9 @@ const uploadLocalDirectory = function (options) {
                 })
             } else {
                 if (err.code == 'BucketAlreadyExists') {
-                    console.error(`${opName}-createBucket-ERROR: ${err} *** It has been created by another AWS Account worldwide!`)
+                    console.error(`${opName}-createBucket-${CERROR}ERROR${CRESET}: ${err} *** It has been created by another AWS Account worldwide!`)
                 } else {
-                    console.error(`${opName}-createBucket-ERROR: ${err}`)
+                    console.error(`${opName}-createBucket-${CERROR}ERROR${CRESET}: ${err}`)
                 }
                 reject(err)
             }
@@ -199,7 +202,7 @@ const uploadLocalDirectory = function (options) {
 
 const uploadLocalFile = function (options) {
     var { adaptor, opName, bucketKey, inputLocalFile } = options
-    opName = opName || 'Simplify::uploadLocalFile'
+    opName = opName || `${CBEGIN}Simplify::${CRESET}uploadLocalFile`
     var uploadFileName = path.basename(inputLocalFile)
     return new Promise(function (resolve, reject) {
         try {
@@ -215,7 +218,7 @@ const uploadLocalFile = function (options) {
                         console.log(`${opName}-Uploading...`)
                         adaptor.upload(params, function (err, data) {
                             if (err) {
-                                console.log(`${opName}-Upload-ERROR: ${err}`)
+                                console.log(`${opName}-Upload-${CERROR}ERROR${CRESET}: ${err}`)
                                 reject(err)
                             } else {
                                 console.log(`${opName}-Uploaded: ${data.Location}`)
@@ -223,7 +226,7 @@ const uploadLocalFile = function (options) {
                             }
                         });
                     } else {
-                        console.error(`${opName}-createBucket-ERROR: ${err}`)
+                        console.error(`${opName}-createBucket-${CERROR}ERROR${CRESET}: ${err}`)
                         reject(err)
                     }
                 });
@@ -236,7 +239,7 @@ const uploadLocalFile = function (options) {
 
 const uploadDirectoryAsZip = function (options) {
     var { adaptor, opName, bucketKey, inputDirectory, outputFilePath } = options
-    opName = opName || 'Simplify::uploadDirectoryAsZip'
+    opName = opName || `${CBEGIN}Simplify::${CRESET}uploadDirectoryAsZip`
     var outputZippedFile = `${toDateStringFile()}.zip`
     var outputZippedFilePath = path.join(outputFilePath, outputZippedFile)
     return new Promise(function (resolve, reject) {
@@ -249,7 +252,7 @@ const uploadDirectoryAsZip = function (options) {
                 resolve(data)
             }).catch(function (err) { reject(err) })
         } catch (err) {
-            console.error(`${opName}-ZipFile-ERROR: ${err}`);
+            console.error(`${opName}-ZipFile-${CERROR}ERROR${CRESET}: ${err}`);
             reject(err)
         }
     })
@@ -257,7 +260,7 @@ const uploadDirectoryAsZip = function (options) {
 
 const createOrUpdateFunction = function (options) {
     var { adaptor, opName, bucketName, bucketKey, functionConfig } = options
-    opName = opName || 'Simplify::createOrUpdateFunction'
+    opName = opName || `${CBEGIN}Simplify::${CRESET}createOrUpdateFunction`
     return new Promise(function (resolve, reject) {
         var params = {
             Code: {
@@ -284,7 +287,7 @@ const createOrUpdateFunction = function (options) {
                         S3Key: bucketKey
                     }, function (err, data) {
                         if (err) {
-                            console.error(`${opName}-FunctionUpdated-ERROR: ${err}`);
+                            console.error(`${opName}-FunctionUpdated-${CERROR}ERROR${CRESET}: ${err}`);
                             reject(err)
                         } else {
                             console.log(`${opName}-FunctionUpdated: OK`);
@@ -300,7 +303,7 @@ const createOrUpdateFunction = function (options) {
                     S3Key: bucketKey
                 }, function (err, data) {
                     if (err) {
-                        console.error(`${opName}-FunctionUpdated-ERROR: ${err}`);
+                        console.error(`${opName}-FunctionUpdated-${CERROR}ERROR${CRESET}: ${err}`);
                         reject(err)
                     } else {
                         console.log(`${opName}-FunctionUpdated: OK`);
@@ -314,7 +317,7 @@ const createOrUpdateFunction = function (options) {
 
 const createFunctionLayerVersion = function (options) {
     var { adaptor, opName, bucketName, bucketKey, functionConfig, layerConfig } = options
-    opName = opName || 'Simplify::createFunctionLayerVersion'
+    opName = opName || `${CBEGIN}Simplify::${CRESET}createFunctionLayerVersion`
     return new Promise(function (resolve, reject) {
         var params = {
             Content: {
@@ -325,18 +328,18 @@ const createFunctionLayerVersion = function (options) {
         };
         console.log(`${opName}-CreateLayer...`);
         adaptor.publishLayerVersion(params, function (err, data) {
-           if (err) {
-                console.error(`${opName}-LayerCreated-ERROR: ${err}`);
+            if (err) {
+                console.error(`${opName}-LayerCreated-${CERROR}ERROR${CRESET}: ${err}`);
                 reject(err)
             } else {
                 console.log(`${opName}-UpdateFunctionLayer...`);
                 adaptor.updateFunctionConfiguration({
                     FunctionName: functionConfig.FunctionName,
-                    Layers: [ data.LayerVersionArn ],
+                    Layers: [data.LayerVersionArn],
                     Environment: functionConfig.Environment
                 }, function (err, _) {
                     if (err) {
-                        console.error(`${opName}-FunctionLayerUpdated-ERROR: ${err}`);
+                        console.error(`${opName}-FunctionLayerUpdated-${CERROR}ERROR${CRESET}: ${err}`);
                         reject(err)
                     } else {
                         console.log(`${opName}-FunctionLayerUpdated: OK`);
@@ -348,13 +351,44 @@ const createFunctionLayerVersion = function (options) {
     })
 }
 
+const updateAPIGatewayDeployment = function (options) {
+    var { adaptor, opName, apiConfig } = options
+    opName = opName || `${CBEGIN}Simplify::${CRESET}updateAPIGatewayDeployment`
+    return new Promise(function (resolve, reject) {
+        console.log(`${opName}-CreateDeployment...`);
+        adaptor.createDeployment({
+            stageName: apiConfig.StageName,
+            restApiId: apiConfig.GatewayId
+        }, function (err, data) {
+            if (err) {
+                console.error(`${opName}-DeploymentCreated-${CERROR}ERROR${CRESET}: ${err}`);
+                reject(err)
+            } else {
+                adaptor.updateStage({
+                    stageName: apiConfig.StageName,
+                    restApiId: apiConfig.GatewayId,
+                    patchOperations: [{ op: 'replace', path: '/deploymentId', value: data.id }]
+                }, function (err, data) {
+                    if (err) {
+                        console.error(`${opName}-StageUpdated-${CERROR}ERROR${CRESET}: ${err}`);
+                        reject(err)
+                    } else {
+                        console.log(`${opName}-StageUpdated: OK`);
+                        resolve(data)
+                    }
+                });
+            }
+        })
+    })
+}
+
 const createOrUpdateStackOnComplete = function (options) {
     return new Promise(function (resolve, reject) {
         var { opName } = options
         const internvalTime = process.env.SIMPLIFY_STACK_INTERVAL || 5000
         var poolingTimeout = process.env.SIMPLIFY_STACK_TIMEOUT || 360
         const timeoutInMinutes = poolingTimeout * internvalTime
-        opName = opName || 'Simplify::createOrUpdateStackOnComplete'
+        opName = opName || `${CBEGIN}Simplify::${CRESET}createOrUpdateStackOnComplete`
         createOrUpdateStack(options).then(function (data) {
             console.log(`${opName}-Update: Started with ${data.StackName || data.StackId}`);
             const whileStatusIsPending = function () {
@@ -367,7 +401,7 @@ const createOrUpdateStackOnComplete = function (options) {
                         resolve(data)
                     }
                 }, function (stackObject) {
-                    console.log(`${opName}-Update: ${stackObject.StackName} ${stackObject.StackStatus}`);
+                    console.log(`${opName}-Update: ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
                     setTimeout(whileStatusIsPending, internvalTime);
                     if (--poolingTimeout <= 0) {
                         reject({ message: `Operation Timeout: Running over ${timeoutInMinutes} mins` })
@@ -376,7 +410,7 @@ const createOrUpdateStackOnComplete = function (options) {
             }
             setTimeout(whileStatusIsPending, internvalTime);
         }, function (err) {
-            console.error(`${opName}-Update-ERROR: ${err}`);
+            console.error(`${opName}-Update-${CERROR}ERROR${CRESET}: ${err}`);
             reject(err)
         })
     })
@@ -392,5 +426,6 @@ module.exports = {
     createFunctionLayerVersion,
     checkStackStatusOnComplete,
     createOrUpdateFunction,
-    createOrUpdateStackOnComplete
+    createOrUpdateStackOnComplete,
+    updateAPIGatewayDeployment
 }

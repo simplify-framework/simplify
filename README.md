@@ -1,8 +1,10 @@
 ### INSTRUCTIONS ###
 
-`npm install simplify`
+`npm install simplify-sdk`
 
-### Simplify for AWS Lambda Configuration: config.json
+This is a JavaScript SDK that help DevOps easier by integrating deployment process inline to your code.
+
+### Deploy for AWS Lambda Configuration: config.json
 
 ```Json
 {
@@ -36,7 +38,7 @@
 }
 ```
 
-### Publish AWS Lambda Function Application: main.js
+### Deoloy AWS Lambda Function example: main.js
 ```Javascript
 const path = require('path')
 const fs = require('fs')

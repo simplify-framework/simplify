@@ -4,15 +4,27 @@ const AdmZip = require('adm-zip')
 const CBEGIN = '\x1b[32m'
 const CERROR = '\x1b[31m'
 const CRESET = '\x1b[0m'
+
 /**
  * adaptor.createFunction(params, callback)
+ * adaptor.updateFunctionCode(params, callback)
  * adaptor.updateFunctionConfiguration(params, callback)
  * adaptor.createBucket(params, callback)
  * adaptor.upload(params, callback)
  * adaptor.createStack(params, callback)
  * adaptor.updateStack(params, callback)
+ * adaptor.deleteStack(params, callback)
  * adaptor.describeStacks(params, callback)
+ * adaptor.publishLayerVersion(params, callback)
+ * adaptor.updateStage(params, callback)
+ * adaptor.createDeployment(params, callback)
  */
+
+String.prototype.truncate = function (num) {
+    if (this.length <= num) { return this }
+    return  '...' + this.slice(this.length - num)
+}
+
 const toDateStringFile = function () {
     var m = new Date();
     return m.getFullYear() +
@@ -35,6 +47,12 @@ const getTimeMoment = function () {
     return ("0" + m.getHours()).slice(-2) + ':' +
         ("0" + m.getMinutes()).slice(-2) + ':' +
         ("0" + m.getSeconds()).slice(-2)
+}
+
+const showBoxBanner = function() {
+    console.log("╓───────────────────────────────────────────────────────────────╖")
+    console.log("║                        Simplify Framework                     ║")
+    console.log("╙───────────────────────────────────────────────────────────────╜")
 }
 
 const parseTemplate = function (...args) {
@@ -120,6 +138,19 @@ const createOrUpdateStack = function (options) {
     })
 }
 
+const deleteExistingStack = function (options) {
+    var { adaptor, opName, stackName } = options
+    opName = opName || `${CBEGIN}Simplify::${CRESET}deleteExistingStack`
+    return new Promise(function (resolve, reject) {
+        var params = {
+            StackName: stackName
+        };
+        adaptor.deleteStack(params, function (err, data) {
+            err ? reject(err) : resolve(data)
+        });
+    })
+}
+
 const checkStackStatusOnComplete = function (options, stackData) {
     var { adaptor, opName } = options
     opName = opName || `${CBEGIN}Simplify::${CRESET}checkStackStatusOnComplete`
@@ -130,7 +161,7 @@ const checkStackStatusOnComplete = function (options, stackData) {
         adaptor.describeStacks(params, function (err, data) {
             if (err) resolve({
                 Error: err
-            }); // resolve to FINISH
+            }); // resolve to FINISH in case there was an error
             else {
                 var currentStack = data.Stacks.length > 0 ? data.Stacks[0] : stackData
                 if (data.Stacks.length && (
@@ -142,9 +173,14 @@ const checkStackStatusOnComplete = function (options, stackData) {
                     currentStack.StackStatus == "DELETE_COMPLETE" ||
                     currentStack.StackStatus == "DELETE_FAILED"
                 )) {
-                    resolve(currentStack) // resolve to FINISH
+                    resolve(currentStack) // resolve to FINISH in case there was a matched STATUS found
                 } else {
-                    reject(currentStack) // reject to CONTINUE
+                    // reject to CONTINUE, in case --deletion the stack will be disapeared with undefined
+                    if (!currentStack.StackStatus && currentStack.ResponseMetadata) {
+                        resolve({ StackStatus: 'CLEANUP_COMPLETE' })
+                    } else {
+                        reject(currentStack)
+                    }
                 }
             }
         });
@@ -206,7 +242,7 @@ const uploadLocalFile = function (options) {
     var uploadFileName = path.basename(inputLocalFile)
     return new Promise(function (resolve, reject) {
         try {
-            console.log(`${opName}-Reading: ${inputLocalFile}`)
+            console.log(`${opName}-Reading: ${inputLocalFile.truncate(80)}`)
             fs.readFile(inputLocalFile, function (err, data) {
                 if (err) throw err;
                 adaptor.createBucket(function (err) {
@@ -221,7 +257,7 @@ const uploadLocalFile = function (options) {
                                 console.log(`${opName}-Upload-${CERROR}ERROR${CRESET}: ${err}`)
                                 reject(err)
                             } else {
-                                console.log(`${opName}-Uploaded: ${data.Location}`)
+                                console.log(`${opName}-Uploaded: ${data.Location.truncate(80)}`)
                                 resolve(data)
                             }
                         });
@@ -247,7 +283,7 @@ const uploadDirectoryAsZip = function (options) {
             const zip = new AdmZip();
             zip.addLocalFolder(inputDirectory)
             zip.writeZip(outputZippedFilePath)
-            console.log(`${opName}-ZipFile: ${outputZippedFilePath}`)
+            console.log(`${opName}-ZipFile: ${outputZippedFilePath.truncate(80)}`)
             uploadLocalFile({ adaptor, opName, bucketKey, inputLocalFile: outputZippedFilePath }).then(function (data) {
                 resolve(data)
             }).catch(function (err) { reject(err) })
@@ -392,12 +428,13 @@ const createOrUpdateStackOnComplete = function (options) {
         const timeoutInMinutes = poolingTimeout * internvalTime
         opName = opName || `${CBEGIN}Simplify::${CRESET}createOrUpdateStackOnComplete`
         createOrUpdateStack(options).then(function (data) {
-            console.log(`${opName}-Update: Started with ${data.StackName || data.StackId}`);
+            console.log(`${opName}-Update: Started with ${(data.StackName || data.StackId).truncate(80)}`);
             const whileStatusIsPending = function () {
                 checkStackStatusOnComplete(options, data).then(function (data) {
                     console.log(`${opName}-Update: Done with ${data.StackStatus}`);
                     if (data.StackStatus == "DELETE_COMPLETE" || data.StackStatus == "DELETE_FAILED" ||
-                        data.StackStatus == "ROLLBACK_COMPLETE" || data.StackStatus == "ROLLBACK_FAILED") {
+                        data.StackStatus == "ROLLBACK_COMPLETE" || data.StackStatus == "ROLLBACK_FAILED" ||
+                        data.StackStatus == "CLEANUP_COMPLETE" ) {
                         reject(data)
                     } else {
                         resolve(data)
@@ -418,16 +455,54 @@ const createOrUpdateStackOnComplete = function (options) {
     })
 }
 
+const deleteStackOnComplete = function (options) {
+    return new Promise(function (resolve, reject) {
+        var { opName } = options
+        const internvalTime = process.env.SIMPLIFY_STACK_INTERVAL || 5000
+        var poolingTimeout = process.env.SIMPLIFY_STACK_TIMEOUT || 360
+        const timeoutInMinutes = poolingTimeout * internvalTime
+        opName = opName || `${CBEGIN}Simplify::${CRESET}deleteStackOnComplete`
+        deleteExistingStack(options).then(function (data) {
+            console.log(`${opName}-Deletion: Started to delete ${options.stackName}`);
+            const whileStatusIsPending = function () {
+                checkStackStatusOnComplete(options, data).then(function (data) {
+                    console.log(`${opName}-Deletion: Done with ${data.StackStatus}`);
+                    if (data.StackStatus == "DELETE_COMPLETE" || data.StackStatus == "DELETE_FAILED" ||
+                        data.StackStatus == "ROLLBACK_COMPLETE" || data.StackStatus == "ROLLBACK_FAILED") {
+                        reject(data)
+                    } else {
+                        resolve(data)
+                    }
+                }, function (stackObject) {
+                    console.log(`${opName}-Deletion: ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
+                    setTimeout(whileStatusIsPending, internvalTime);
+                    if (--poolingTimeout <= 0) {
+                        reject({ message: `Operation Timeout: Running over ${timeoutInMinutes} mins` })
+                    }
+                })
+            }
+            setTimeout(whileStatusIsPending, internvalTime);
+        }, function (err) {
+            console.error(`${opName}-Deletion-${CERROR}ERROR${CRESET}: ${err}`);
+            reject(err)
+        })
+    })
+}
+
 module.exports = {
+    showBoxBanner,
     parseTemplate,
     getInputConfig,
     uploadLocalFile,
     uploadLocalDirectory,
     uploadDirectoryAsZip,
     createOrUpdateStack,
+    deleteStackOnComplete,
     createFunctionLayerVersion,
     checkStackStatusOnComplete,
     createOrUpdateFunction,
     createOrUpdateStackOnComplete,
     updateAPIGatewayDeployment
 }
+
+showBoxBanner()

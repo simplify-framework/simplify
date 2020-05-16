@@ -1,28 +1,32 @@
 const path = require('path')
+const crypto = require('crypto')
 const fs = require('fs')
 const AdmZip = require('adm-zip')
 const CBEGIN = '\x1b[32m'
 const CERROR = '\x1b[31m'
 const CRESET = '\x1b[0m'
+const CDONE = '\x1b[37m'
 
 /**
- * adaptor.createFunction(params, callback)
- * adaptor.updateFunctionCode(params, callback)
- * adaptor.updateFunctionConfiguration(params, callback)
- * adaptor.createBucket(params, callback)
- * adaptor.upload(params, callback)
- * adaptor.createStack(params, callback)
- * adaptor.updateStack(params, callback)
- * adaptor.deleteStack(params, callback)
- * adaptor.describeStacks(params, callback)
- * adaptor.publishLayerVersion(params, callback)
- * adaptor.updateStage(params, callback)
- * adaptor.createDeployment(params, callback)
+ * [Storage] adaptor.createBucket(params, callback)
+ * [Storage] adaptor.upload(params, callback)
+ * [Function] adaptor.createFunction(params, callback)
+ * [Function] adaptor.updateFunctionCode(params, callback)
+ * [Function] adaptor.updateFunctionConfiguration(params, callback)
+ * [Function] adaptor.getLayerVersion(params, callback)
+ * [Function] adaptor.getFunction(params, callback)
+ * [Function] adaptor.publishLayerVersion(params, callback)
+ * [Resource] adaptor.createStack(params, callback)
+ * [Resource] adaptor.updateStack(params, callback)
+ * [Resource] adaptor.deleteStack(params, callback)
+ * [Resource] adaptor.describeStacks(params, callback)
+ * [APIGateway] adaptor.updateStage(params, callback)
+ * [APIGateway] adaptor.createDeployment(params, callback)
  */
 
 String.prototype.truncate = function (num) {
     if (this.length <= num) { return this }
-    return  '...' + this.slice(this.length - num)
+    return '...' + this.slice(this.length - num)
 }
 
 const toDateStringFile = function () {
@@ -49,7 +53,7 @@ const getTimeMoment = function () {
         ("0" + m.getSeconds()).slice(-2)
 }
 
-const showBoxBanner = function() {
+const showBoxBanner = function () {
     console.log("╓───────────────────────────────────────────────────────────────╖")
     console.log("║                        Simplify Framework                     ║")
     console.log("╙───────────────────────────────────────────────────────────────╜")
@@ -209,11 +213,11 @@ const uploadLocalDirectory = function (options) {
                                     };
                                     adaptor.upload(params, function (err, data) {
                                         if (err) {
-                                            console.error(`${opName}-FileUpload-${CERROR}ERROR${CRESET}: ${err}`)
+                                            console.error(`${opName}-FileUpload: ${CERROR}(ERROR)${CRESET} ${err}`)
                                             reject(err)
                                         } else {
                                             fileInfos.push(data)
-                                            console.log(`${opName}-FileUploaded: ${params.Key}`)
+                                            console.log(`${opName}-FileUpload: ${params.Key}`)
                                             if (++index >= files.length) {
                                                 resolve(fileInfos)
                                             }
@@ -226,9 +230,9 @@ const uploadLocalDirectory = function (options) {
                 })
             } else {
                 if (err.code == 'BucketAlreadyExists') {
-                    console.error(`${opName}-createBucket-${CERROR}ERROR${CRESET}: ${err} *** It has been created by another AWS Account worldwide!`)
+                    console.error(`${opName}-CreateBucket: ${CERROR}(ERROR)${CRESET} ${err} *** It has been created by another AWS Account worldwide!`)
                 } else {
-                    console.error(`${opName}-createBucket-${CERROR}ERROR${CRESET}: ${err}`)
+                    console.error(`${opName}-CreateBucket: ${CERROR}(ERROR)${CRESET} ${err}`)
                 }
                 reject(err)
             }
@@ -242,27 +246,27 @@ const uploadLocalFile = function (options) {
     var uploadFileName = path.basename(inputLocalFile)
     return new Promise(function (resolve, reject) {
         try {
-            console.log(`${opName}-Reading: ${inputLocalFile.truncate(80)}`)
+            console.log(`${opName}-ReadFile: ${inputLocalFile.truncate(80)}`)
             fs.readFile(inputLocalFile, function (err, data) {
                 if (err) throw err;
+                const sha256Hex = crypto.createHash('sha256').update(data).digest('hex')
                 adaptor.createBucket(function (err) {
                     var params = {
                         Key: bucketKey + '/' + uploadFileName,
                         Body: data
                     };
                     if (!err || (err.code == 'BucketAlreadyOwnedByYou')) {
-                        console.log(`${opName}-Uploading...`)
                         adaptor.upload(params, function (err, data) {
                             if (err) {
-                                console.log(`${opName}-Upload-${CERROR}ERROR${CRESET}: ${err}`)
+                                console.log(`${opName}-FileUpload: ${CERROR}(ERROR)${CRESET} ${err}`)
                                 reject(err)
                             } else {
-                                console.log(`${opName}-Uploaded: ${data.Location.truncate(80)}`)
-                                resolve(data)
+                                console.log(`${opName}-FileUpload: ${data.Location.truncate(80)}`)
+                                resolve({ ...data, FileSha256: sha256Hex })
                             }
                         });
                     } else {
-                        console.error(`${opName}-createBucket-${CERROR}ERROR${CRESET}: ${err}`)
+                        console.error(`${opName}-CreateBucket: ${CERROR}(ERROR)${CRESET} ${err}`)
                         reject(err)
                     }
                 });
@@ -288,7 +292,7 @@ const uploadDirectoryAsZip = function (options) {
                 resolve(data)
             }).catch(function (err) { reject(err) })
         } catch (err) {
-            console.error(`${opName}-ZipFile-${CERROR}ERROR${CRESET}: ${err}`);
+            console.error(`${opName}-ZipFile: ${CERROR}(ERROR)${CRESET} ${err}`);
             reject(err)
         }
     })
@@ -305,49 +309,67 @@ const createOrUpdateFunction = function (options) {
             },
             ...functionConfig
         };
-        console.log(`${opName}-UpdateFunction...`);
-        adaptor.createFunction(params, function (err, data) {
+        console.log(`${opName}-CreateFunction: ${functionConfig.FunctionName.truncate(80)}`);
+        adaptor.createFunction(params, function (err) {
             if (err) {
-                console.log(`${opName}-UpdateConfig...`);
-                delete params.Code;
-                delete params.Publish;
-                delete params.Tags;
-                adaptor.updateFunctionConfiguration(params, function (err, data) {
-                    if (err)
+                console.log(`${opName}-UpdateFunctionConfig: ${functionConfig.FunctionName.truncate(80)}`);
+                const unusedProps = ["Code", "Publish", "Tags"]
+                unusedProps.forEach(function (k) { delete params[k] })
+                adaptor.updateFunctionConfiguration(params, function (err) {
+                    if (err) {
                         reject(err)
-                    else
-                        console.log(`${opName}-UpdateConfig: OK`);
-                    adaptor.updateFunctionCode({
-                        FunctionName: functionConfig.FunctionName,
-                        S3Bucket: bucketName,
-                        S3Key: bucketKey
-                    }, function (err, data) {
-                        if (err) {
-                            console.error(`${opName}-FunctionUpdated-${CERROR}ERROR${CRESET}: ${err}`);
-                            reject(err)
-                        } else {
-                            console.log(`${opName}-FunctionUpdated: OK`);
-                            resolve(data)
-                        }
-                    })
+                    } else {
+                        console.log(`${opName}-UpdateFunctionConfig: ${CDONE}(OK)${CRESET}`);
+                        adaptor.updateFunctionCode({
+                            FunctionName: functionConfig.FunctionName,
+                            S3Bucket: bucketName,
+                            S3Key: bucketKey
+                        }, function (err, data) {
+                            if (err) {
+                                console.error(`${opName}-UpdateFunctionCode: ${CERROR}(ERROR)${CRESET} ${err}`);
+                                reject(err)
+                            } else {
+                                console.log(`${opName}-UpdateFunctionCode: ${CDONE}(OK)${CRESET}`);
+                                resolve(data)
+                            }
+                        })
+                    }
                 });
             } else {
-                console.log(`${opName}-FunctionCreated: OK`);
+                console.log(`${opName}-CreateFunction: ${CDONE}(OK)${CRESET}`);
                 adaptor.updateFunctionCode({
                     FunctionName: functionName,
                     S3Bucket: bucketName,
                     S3Key: bucketKey
                 }, function (err, data) {
                     if (err) {
-                        console.error(`${opName}-FunctionUpdated-${CERROR}ERROR${CRESET}: ${err}`);
+                        console.error(`${opName}-UpdateFunctionCode: ${CERROR}(ERROR)${CRESET} ${err}`);
                         reject(err)
                     } else {
-                        console.log(`${opName}-FunctionUpdated: OK`);
+                        console.log(`${opName}-UpdateFunctionCode: ${CDONE}(OK)${CRESET}`);
                         resolve(data)
                     }
                 })
             }
         });
+    })
+}
+
+const updateFunctionConfiguration = function (options) {
+    var { adaptor, opName, functionConfig } = options
+    opName = opName || `${CBEGIN}Simplify::${CRESET}updateFunctionConfiguration`
+    return new Promise(function (resolve, reject) {
+        const unusedProps = ["Code", "Publish", "Tags"]
+        unusedProps.forEach(function (k) { delete functionConfig[k] })
+        adaptor.updateFunctionConfiguration({ ...functionConfig }, function (err, data) {
+            if (err) {
+                console.error(`${opName}-UpdateFunctionConfig: ${CERROR}(ERROR)${CRESET} ${err}`);
+                reject(err)
+            } else {
+                console.log(`${opName}-UpdateFunctionConfig: ${CDONE}(OK)${CRESET}`);
+                resolve(data)
+            }
+        })
     })
 }
 
@@ -362,28 +384,85 @@ const createFunctionLayerVersion = function (options) {
             },
             ...layerConfig
         };
-        console.log(`${opName}-CreateLayer...`);
+        console.log(`${opName}-CreateFunctionLayer: ${layerConfig.LayerName}`);
         adaptor.publishLayerVersion(params, function (err, data) {
             if (err) {
-                console.error(`${opName}-LayerCreated-${CERROR}ERROR${CRESET}: ${err}`);
+                console.error(`${opName}-CreateLayerVersion: ${CERROR}(ERROR)${CRESET} ${err}`);
                 reject(err)
             } else {
-                console.log(`${opName}-UpdateFunctionLayer...`);
+                console.log(`${opName}-UpdateFunctionConfig: ${layerConfig.LayerName}`);
                 if (!functionConfig.Layers) functionConfig.Layers = []
-                functionConfig.Layers.push(data.LayerVersionArn)
+                let layerIndex = -1
+                let existedLayerArn = functionConfig.Layers.find(function (layerArn, index) {
+                    layerIndex = index
+                    const multiPartsLayerArn = layerArn.split(':')
+                    return (multiPartsLayerArn.length > 6 && multiPartsLayerArn[6] === layerConfig.LayerName)
+                })
+                if (typeof existedLayerArn !== 'undefined') {
+                    functionConfig.Layers[layerIndex] = data.LayerVersionArn
+                } else {
+                    functionConfig.Layers.push(data.LayerVersionArn)
+                }
+                data.Layers = functionConfig.Layers
                 adaptor.updateFunctionConfiguration({
                     FunctionName: functionConfig.FunctionName,
                     Layers: functionConfig.Layers,
                     Environment: functionConfig.Environment
                 }, function (err, _) {
                     if (err) {
-                        console.error(`${opName}-FunctionLayerUpdated-${CERROR}ERROR${CRESET}: ${err}`);
+                        console.error(`${opName}-UpdateFunctionConfig: ${CERROR}(ERROR)${CRESET} ${err}`);
                         reject(err)
                     } else {
-                        console.log(`${opName}-FunctionLayerUpdated: OK`);
+                        console.log(`${opName}-UpdateFunctionConfig: ${CDONE}(OK)${CRESET}`);
                         resolve(data)
                     }
                 })
+            }
+        });
+    })
+}
+
+const getFunctionMetaInfos = function (options) {
+    var { adaptor, opName, functionConfig } = options
+    opName = opName || `${CBEGIN}Simplify::${CRESET}getFunctionMetaInfos`
+    return new Promise(function (resolve, reject) {
+        var params = {
+            FunctionName: functionConfig.FunctionName
+        };
+        console.log(`${opName}-GetFunction: ${functionConfig.FunctionName.truncate(80)}`);
+        adaptor.getFunction(params, function (err, data) {
+            if (err) {
+                console.error(`${opName}-GetFunction: ${CERROR}(ERROR)${CRESET} ${err}`);
+                reject(err)
+            } else {
+                let layerIndex = 0
+                let functionData = { ...data, LayerInfos: [] }
+                functionData.Configuration.Layers = functionData.Configuration.Layers || []
+                console.log(`${opName}-GetFunctionLayers: ${functionConfig.FunctionName.truncate(80)}`);
+                function getLayerInfoRecusive(index) {
+                    const layerArnWithVersion = functionData.Configuration.Layers[index].Arn.split(':')
+                    const layerOnlyARN = layerArnWithVersion.splice(0, layerArnWithVersion.length - 1).join(':')
+                    const versionNumber = layerArnWithVersion.join('')
+                    adaptor.getLayerVersion({
+                        LayerName: layerOnlyARN,
+                        VersionNumber: versionNumber
+                    }, function (err, layerMeta) {
+                        if (err) {
+                            reject(err)
+                        } else {
+                            if (++index < functionData.Configuration.Layers.length) {
+                                functionData.LayerInfos.push(layerMeta)
+                                getLayerInfoRecusive(index)
+                            } else {
+                                functionData.LayerInfos.push(layerMeta)
+                                resolve(functionData)
+                            }
+                        }
+                    });
+                }
+                if (functionData.Configuration.Layers.length > 0) {
+                    getLayerInfoRecusive(layerIndex)
+                }
             }
         });
     })
@@ -393,13 +472,13 @@ const updateAPIGatewayDeployment = function (options) {
     var { adaptor, opName, apiConfig } = options
     opName = opName || `${CBEGIN}Simplify::${CRESET}updateAPIGatewayDeployment`
     return new Promise(function (resolve, reject) {
-        console.log(`${opName}-CreateDeployment...`);
+        console.log(`${opName}-CreateDeployment: ${apiConfig.GatewayId}`);
         adaptor.createDeployment({
             stageName: apiConfig.StageName,
             restApiId: apiConfig.GatewayId
         }, function (err, data) {
             if (err) {
-                console.error(`${opName}-DeploymentCreated-${CERROR}ERROR${CRESET}: ${err}`);
+                console.error(`${opName}-CreateDeployment: ${CERROR}(ERROR)${CRESET} ${err}`);
                 reject(err)
             } else {
                 adaptor.updateStage({
@@ -408,10 +487,10 @@ const updateAPIGatewayDeployment = function (options) {
                     patchOperations: [{ op: 'replace', path: '/deploymentId', value: data.id }]
                 }, function (err, data) {
                     if (err) {
-                        console.error(`${opName}-StageUpdated-${CERROR}ERROR${CRESET}: ${err}`);
+                        console.error(`${opName}-UpdateDeploymentStage: ${CERROR}(ERROR)${CRESET} ${err}`);
                         reject(err)
                     } else {
-                        console.log(`${opName}-StageUpdated: OK`);
+                        console.log(`${opName}-UpdateDeploymentStage: ${CDONE}(OK)${CRESET}`);
                         resolve(data)
                     }
                 });
@@ -428,19 +507,19 @@ const createOrUpdateStackOnComplete = function (options) {
         const timeoutInMinutes = poolingTimeout * internvalTime
         opName = opName || `${CBEGIN}Simplify::${CRESET}createOrUpdateStackOnComplete`
         createOrUpdateStack(options).then(function (data) {
-            console.log(`${opName}-Update: Started with ${(data.StackName || data.StackId).truncate(80)}`);
+            console.log(`${opName}-CreateStackOrUpdate: Started with ${(data.StackName || data.StackId).truncate(80)}`);
             const whileStatusIsPending = function () {
                 checkStackStatusOnComplete(options, data).then(function (data) {
-                    console.log(`${opName}-Update: Done with ${data.StackStatus}`);
+                    console.log(`${opName}-CreateStackOrUpdate: ${CDONE}(OK)${CRESET} with ${data.StackStatus}`);
                     if (data.StackStatus == "DELETE_COMPLETE" || data.StackStatus == "DELETE_FAILED" ||
                         data.StackStatus == "ROLLBACK_COMPLETE" || data.StackStatus == "ROLLBACK_FAILED" ||
-                        data.StackStatus == "CLEANUP_COMPLETE" ) {
+                        data.StackStatus == "CLEANUP_COMPLETE") {
                         reject(data)
                     } else {
                         resolve(data)
                     }
                 }, function (stackObject) {
-                    console.log(`${opName}-Update: ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
+                    console.log(`${opName}-CreateStackOrUpdate: ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
                     setTimeout(whileStatusIsPending, internvalTime);
                     if (--poolingTimeout <= 0) {
                         reject({ message: `Operation Timeout: Running over ${timeoutInMinutes} mins` })
@@ -449,7 +528,7 @@ const createOrUpdateStackOnComplete = function (options) {
             }
             setTimeout(whileStatusIsPending, internvalTime);
         }, function (err) {
-            console.error(`${opName}-Update-${CERROR}ERROR${CRESET}: ${err}`);
+            console.error(`${opName}-CreateStackOrUpdate: ${CERROR}(ERROR)${CRESET} ${err}`);
             reject(err)
         })
     })
@@ -463,10 +542,10 @@ const deleteStackOnComplete = function (options) {
         const timeoutInMinutes = poolingTimeout * internvalTime
         opName = opName || `${CBEGIN}Simplify::${CRESET}deleteStackOnComplete`
         deleteExistingStack(options).then(function (data) {
-            console.log(`${opName}-Deletion: Started to delete ${options.stackName}`);
+            console.log(`${opName}-DeleteExistingStack: Started to delete ${options.stackName}`);
             const whileStatusIsPending = function () {
                 checkStackStatusOnComplete(options, data).then(function (data) {
-                    console.log(`${opName}-Deletion: Done with ${data.StackStatus}`);
+                    console.log(`${opName}-DeleteExistingStack: ${CDONE}(OK)${CRESET} with ${data.StackStatus}`);
                     if (data.StackStatus == "DELETE_COMPLETE" || data.StackStatus == "DELETE_FAILED" ||
                         data.StackStatus == "ROLLBACK_COMPLETE" || data.StackStatus == "ROLLBACK_FAILED") {
                         reject(data)
@@ -474,7 +553,7 @@ const deleteStackOnComplete = function (options) {
                         resolve(data)
                     }
                 }, function (stackObject) {
-                    console.log(`${opName}-Deletion: ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
+                    console.log(`${opName}-DeleteExistingStack: ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
                     setTimeout(whileStatusIsPending, internvalTime);
                     if (--poolingTimeout <= 0) {
                         reject({ message: `Operation Timeout: Running over ${timeoutInMinutes} mins` })
@@ -483,8 +562,47 @@ const deleteStackOnComplete = function (options) {
             }
             setTimeout(whileStatusIsPending, internvalTime);
         }, function (err) {
-            console.error(`${opName}-Deletion-${CERROR}ERROR${CRESET}: ${err}`);
+            console.error(`${opName}-DeleteExistingStack: ${CERROR}(ERROR)${CRESET} ${err}`);
             reject(err)
+        })
+    })
+}
+
+const deleteFunctionLayerVersions = function (options) {
+    var { adaptor, opName, functionConfig } = options
+    opName = opName || `${CBEGIN}Simplify::${CRESET}deleteFunctionLayerVersions`
+    return new Promise(function (resolve, reject) {
+        let layerDeletionIndex = 0
+        functionConfig.Layers = functionConfig.Layers || []
+        functionConfig.Layers.forEach(function (layer) {
+            const layerArnWithVersion = layer.split(':')
+            const layerOnlyARN = layerArnWithVersion.splice(0, layerArnWithVersion.length - 1).join(':')
+            console.log(`${opName}-ListLayerVersions: ${layerOnlyARN.truncate(80)}`);
+            adaptor.listLayerVersions({ LayerName: layerOnlyARN }, function (err, data) {
+                let layerVersionIndex = 0
+                function deleteOneLayerVersion(index) {
+                    const layerVersionNumber = data.LayerVersions[index].Version
+                    adaptor.deleteLayerVersion({ LayerName: layerOnlyARN, VersionNumber: layerVersionNumber }, function (err) {
+                        if (err) {
+                            console.error(`${opName}-DeleteLayerVersion: ${CERROR}(ERROR)${CRESET} ${err}`);
+                        } else if (++index < data.LayerVersions.length) {
+                            console.log(`${opName}-DeleteLayerVersion: ${CDONE}(OK)${CRESET} ${layerOnlyARN.truncate(80)}:${layerVersionNumber}`);
+                            deleteOneLayerVersion(index)
+                        } else {
+                            console.log(`${opName}-DeleteLayerVersion: ${CDONE}(OK)${CRESET} ${layerOnlyARN.truncate(80)}:${layerVersionNumber}`);
+                            if (++layerDeletionIndex>=functionConfig.Layers.length) {
+                                resolve(functionConfig.Layers)
+                            }
+                        }
+                    })
+                }
+                if (err) {
+                    console.error(`${opName}-ListLayerVersions: ${CERROR}(ERROR)${CRESET} ${err}`);
+                    reject(err)
+                } else if (data.LayerVersions.length > 0) {
+                    deleteOneLayerVersion(layerVersionIndex)
+                }
+            })
         })
     })
 }
@@ -498,11 +616,14 @@ module.exports = {
     uploadDirectoryAsZip,
     createOrUpdateStack,
     deleteStackOnComplete,
+    deleteFunctionLayerVersions,
     createFunctionLayerVersion,
+    updateFunctionConfiguration,
     checkStackStatusOnComplete,
     createOrUpdateFunction,
     createOrUpdateStackOnComplete,
-    updateAPIGatewayDeployment
+    updateAPIGatewayDeployment,
+    getFunctionMetaInfos
 }
 
 showBoxBanner()

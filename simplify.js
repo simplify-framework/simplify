@@ -333,9 +333,11 @@ const createFunctionLayerVersion = function (options) {
                 reject(err)
             } else {
                 console.log(`${opName}-UpdateFunctionLayer...`);
+                if (!functionConfig.Layers) functionConfig.Layers = []
+                functionConfig.Layers.push(data.LayerVersionArn)
                 adaptor.updateFunctionConfiguration({
                     FunctionName: functionConfig.FunctionName,
-                    Layers: [data.LayerVersionArn],
+                    Layers: functionConfig.Layers,
                     Environment: functionConfig.Environment
                 }, function (err, _) {
                     if (err) {

@@ -1,8 +1,12 @@
-# Simplify Framework - CodeGen
+# Simplify Framework - Simplify SDK
   
-Initial code based on [openapi-codegen](https://github.com/Mermade/openapi-codegen)
+*This is a JavaScript SDK that help DevOps easier by integrating deployment process inline to your code. You will never want to be locked into any vendor for a tool. In FaaS architecture, a function can be very small but a project needs some (3-100) functions to orchestrate a workload. One CI/CD tool for all of them is quite vague to deploy your project when you just need to update one line of a function.*
 
-*Node.js-based codegen for OpenAPI specs. This project was initially by tailoring from openapi-codegen to use the core code generation functionality to generate the lambda based node projects and AWS CloudFormation stack. There was many tailored code to become a powerful tool nowaday. Thanks to the initial openapi-codegen project that has saved time for developing an initial idea.*
+By using this SDK, you can breakdown your CI/CD tool as a function. Once again, FaaS concept now being applied for DevOps process. When you are micro focused into a function, a micro CI/CD function is beside of you. You're always feel safe and be efficiency. Simplify CodeGen generates a first code for you. It works well enough until you need to customize for your best fit. Happy OpenSource ￦
+
+To start, goto [simplify-codegen](https://github.com/simplify-framework/simplify-codegen)
+
+*`simplify-codegen` is a Node.js-based codegen using OpenAPI specs to generate your own project then use `simplify-sdk` for governance. This project was initially by tailoring from openapi-codegen to use the core code generation functionality to generate the lambda based node projects and AWS CloudFormation stack. There was many tailored code to become a powerful tool nowaday. Thanks to the initial openapi-codegen project that has saved time for developing an initial idea.*
 
 ## Divided code capability:
 - `Nano` function: per individual method (/path/rc: GET) as a lambda function
@@ -65,10 +69,6 @@ Initial code based on [openapi-codegen](https://github.com/Mermade/openapi-codeg
 ### Simplify - JavaScript SDK ###
 
 `npm install simplify-sdk`
-
-This is a JavaScript SDK that help DevOps easier by integrating deployment process inline to your code. You will never want to be locked into any vendor for a tool. In FaaS architecture, a function can be very small but a project needs some (3-100) functions to orchestrate a workload. One CI/CD tool for all of them is quite vague to deploy your project when you just need to update one line of a function.
-
-By using this SDK, you can breakdown your CI/CD tool as a function. Once again, FaaS concept now being applied for DevOps process. When you are micro focused into a function, a micro CI/CD function is beside of you. You're always feel safe and be efficiency. Simplify CodeGen generates a first code for you. It works well enough until you need to customize for your best fit. Happy OpenSource ￦
 
 ### Deploy for AWS Lambda Configuration: config.json
 

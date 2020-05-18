@@ -44,7 +44,8 @@ To start, goto [simplify-codegen](https://github.com/simplify-framework/simplify
 
 ## Setup AWS configuration profile
 - Create a deployment user in IAM: `simplify-user`
-- Setup IAM Role policy using: `deployment-policy.json`
+- Setup IAM Role Policy using: `policy-deployment.json`
+- Setup IAM Role Policy using: `policy-execute-api.json`
 - Configure your machine `aws configure --profile simplify-eu`
 
 ## You are in the pets project directory

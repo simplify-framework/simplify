@@ -1,5 +1,7 @@
 # Simplify Framework - Simplify SDK
   
+![Node.js CI](https://github.com/simplify-framework/pets-project/workflows/Node.js%20CI/badge.svg)
+
 *This is a JavaScript SDK that help DevOps easier by integrating deployment process inline to your code. You will never want to be locked into any vendor for a tool. In FaaS architecture, a function can be very small but a project needs some (3-100) functions to orchestrate a workload. One CI/CD tool for all of them is quite vague to deploy your project when you just need to update one line of a function.*
 
 By using this SDK, you can breakdown your CI/CD tool as a function. Once again, FaaS concept now being applied for DevOps process. When you are micro focused into a function, a micro CI/CD function is beside of you. You're always feel safe and be efficiency. Simplify CodeGen generates a first code for you. It works well enough until you need to customize for your best fit. Happy OpenSource ￦
@@ -42,7 +44,8 @@ To start, goto [simplify-codegen](https://github.com/simplify-framework/simplify
 
 ## Setup AWS configuration profile
 - Create a deployment user in IAM: `simplify-user`
-- Setup IAM Role policy using: `deployment-policy.json`
+- Setup IAM Role Policy using: `policy-deployment.json`
+- Setup IAM Role Policy using: `policy-execute-api.json`
 - Configure your machine `aws configure --profile simplify-eu`
 
 ## You are in the pets project directory

@@ -9,6 +9,8 @@ var s3BucketParams = {
     Bucket: 'simplify-default-deployment-acf0f0997c98633e06f765a8548392049ff16d6d',
     ACL: 'private'
 }
+process.env.AWS_SDK_LOAD_CONFIG = process.env.AWS_SDK_LOAD_CONFIG || true
+
 module.exports = {
     setConfig: function (config) {
         return new Promise(function (resolve, reject) {
@@ -26,7 +28,7 @@ module.exports = {
                     reject(err)
                 } else {
                     AWS.config.update({ credentials: credentials });
-                    console.log(`${CBEGIN}Simplify::${CRESET}AWSProvider-Credentials: ${AWS.config.credentials.profile ? AWS.config.credentials.profile : 'default'}`)
+                    console.log(`${CBEGIN}Simplify${CRESET} | AWSProvider-Credentials: ${AWS.config.credentials.profile ? AWS.config.credentials.profile : 'default'}`)
                     s3BucketParams.Bucket = config.Bucket.Name
                     if (config.Region != 'us-east-1') {
                         s3BucketParams.CreateBucketConfiguration = {

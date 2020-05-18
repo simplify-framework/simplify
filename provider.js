@@ -28,7 +28,7 @@ module.exports = {
                     reject(err)
                 } else {
                     AWS.config.update({ credentials: credentials });
-                    console.log(`${CBEGIN}Simplify::${CRESET}AWSProvider-Credentials: ${AWS.config.credentials.profile ? AWS.config.credentials.profile : 'default'}`)
+                    console.log(`${CBEGIN}Simplify${CRESET} | AWSProvider-Credentials: ${AWS.config.credentials.profile ? AWS.config.credentials.profile : 'default'}`)
                     s3BucketParams.Bucket = config.Bucket.Name
                     if (config.Region != 'us-east-1') {
                         s3BucketParams.CreateBucketConfiguration = {

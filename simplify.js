@@ -92,7 +92,7 @@ const getInputConfig = function (...args) {
 
 const createOrUpdateStack = function (options) {
     var { adaptor, opName, stackName, stackParameters, stackTemplate } = options
-    opName = opName || `${CBEGIN}Simplify::${CRESET}createOrUpdateStack`
+    opName = opName || `${CBEGIN}Simplify${CRESET} | createOrUpdateStack`
     function getParameters(params) {
         return Object.keys(params).map(function (k) {
             return {
@@ -143,7 +143,7 @@ const createOrUpdateStack = function (options) {
 
 const deleteExistingStack = function (options) {
     var { adaptor, opName, stackName } = options
-    opName = opName || `${CBEGIN}Simplify::${CRESET}deleteExistingStack`
+    opName = opName || `${CBEGIN}Simplify${CRESET} | deleteExistingStack`
     return new Promise(function (resolve, reject) {
         var params = {
             StackName: stackName
@@ -156,7 +156,7 @@ const deleteExistingStack = function (options) {
 
 const checkStackStatusOnComplete = function (options, stackData) {
     var { adaptor, opName } = options
-    opName = opName || `${CBEGIN}Simplify::${CRESET}checkStackStatusOnComplete`
+    opName = opName || `${CBEGIN}Simplify${CRESET} | checkStackStatusOnComplete`
     return new Promise(function (resolve, reject) {
         var params = {
             StackName: stackData.StackId || stackData.StackName
@@ -190,7 +190,7 @@ const checkStackStatusOnComplete = function (options, stackData) {
 
 const uploadLocalDirectory = function (options) {
     var { adaptor, opName, bucketKey, inputDirectory } = options
-    opName = opName || `${CBEGIN}Simplify::${CRESET}uploadLocalDirectory`
+    opName = opName || `${CBEGIN}Simplify${CRESET} | uploadLocalDirectory`
     return new Promise(function (resolve, reject) {
         adaptor.createBucket(function (err) {
             if (!err || (err.code == 'BucketAlreadyOwnedByYou')) {
@@ -239,7 +239,7 @@ const uploadLocalDirectory = function (options) {
 
 const uploadLocalFile = function (options) {
     var { adaptor, opName, bucketKey, inputLocalFile } = options
-    opName = opName || `${CBEGIN}Simplify::${CRESET}uploadLocalFile`
+    opName = opName || `${CBEGIN}Simplify${CRESET} | uploadLocalFile`
     var uploadFileName = path.basename(inputLocalFile)
     return new Promise(function (resolve, reject) {
         try {
@@ -276,7 +276,7 @@ const uploadLocalFile = function (options) {
 
 const uploadDirectoryAsZip = function (options) {
     var { adaptor, opName, bucketKey, inputDirectory, outputFilePath } = options
-    opName = opName || `${CBEGIN}Simplify::${CRESET}uploadDirectoryAsZip`
+    opName = opName || `${CBEGIN}Simplify${CRESET} | uploadDirectoryAsZip`
     var outputZippedFile = `${toDateStringFile()}.zip`
     var outputZippedFilePath = path.join(outputFilePath, outputZippedFile)
     return new Promise(function (resolve, reject) {
@@ -297,7 +297,7 @@ const uploadDirectoryAsZip = function (options) {
 
 const createOrUpdateFunction = function (options) {
     var { adaptor, opName, bucketName, bucketKey, functionConfig } = options
-    opName = opName || `${CBEGIN}Simplify::${CRESET}createOrUpdateFunction`
+    opName = opName || `${CBEGIN}Simplify${CRESET} | createOrUpdateFunction`
     return new Promise(function (resolve, reject) {
         var params = {
             Code: {
@@ -354,7 +354,7 @@ const createOrUpdateFunction = function (options) {
 
 const updateFunctionConfiguration = function (options) {
     var { adaptor, opName, functionConfig } = options
-    opName = opName || `${CBEGIN}Simplify::${CRESET}updateFunctionConfiguration`
+    opName = opName || `${CBEGIN}Simplify${CRESET} | updateFunctionConfiguration`
     return new Promise(function (resolve, reject) {
         const unusedProps = ["Code", "Publish", "Tags"]
         unusedProps.forEach(function (k) { delete functionConfig[k] })
@@ -372,7 +372,7 @@ const updateFunctionConfiguration = function (options) {
 
 const createFunctionLayerVersion = function (options) {
     var { adaptor, opName, bucketName, bucketKey, functionConfig, layerConfig } = options
-    opName = opName || `${CBEGIN}Simplify::${CRESET}createFunctionLayerVersion`
+    opName = opName || `${CBEGIN}Simplify${CRESET} | createFunctionLayerVersion`
     return new Promise(function (resolve, reject) {
         var params = {
             Content: {
@@ -421,7 +421,7 @@ const createFunctionLayerVersion = function (options) {
 
 const getFunctionMetaInfos = function (options) {
     var { adaptor, opName, functionConfig } = options
-    opName = opName || `${CBEGIN}Simplify::${CRESET}getFunctionMetaInfos`
+    opName = opName || `${CBEGIN}Simplify${CRESET} | getFunctionMetaInfos`
     return new Promise(function (resolve, reject) {
         var params = {
             FunctionName: functionConfig.FunctionName
@@ -467,7 +467,7 @@ const getFunctionMetaInfos = function (options) {
 
 const updateAPIGatewayDeployment = function (options) {
     var { adaptor, opName, apiConfig } = options
-    opName = opName || `${CBEGIN}Simplify::${CRESET}updateAPIGatewayDeployment`
+    opName = opName || `${CBEGIN}Simplify${CRESET} | updateAPIGatewayDeployment`
     return new Promise(function (resolve, reject) {
         console.log(`${opName}-CreateDeployment: ${apiConfig.GatewayId}`);
         adaptor.createDeployment({
@@ -502,7 +502,7 @@ const createOrUpdateStackOnComplete = function (options) {
         const internvalTime = process.env.SIMPLIFY_STACK_INTERVAL || 5000
         var poolingTimeout = process.env.SIMPLIFY_STACK_TIMEOUT || 360
         const timeoutInMinutes = poolingTimeout * internvalTime
-        opName = opName || `${CBEGIN}Simplify::${CRESET}createOrUpdateStackOnComplete`
+        opName = opName || `${CBEGIN}Simplify${CRESET} | createOrUpdateStackOnComplete`
         createOrUpdateStack(options).then(function (data) {
             console.log(`${opName}-CreateStackOrUpdate: Creating ${(data.StackName || data.StackId).truncate(50)}`);
             const whileStatusIsPending = function () {
@@ -542,7 +542,7 @@ const deleteStackOnComplete = function (options) {
         const internvalTime = process.env.SIMPLIFY_STACK_INTERVAL || 5000
         var poolingTimeout = process.env.SIMPLIFY_STACK_TIMEOUT || 360
         const timeoutInMinutes = poolingTimeout * internvalTime
-        opName = opName || `${CBEGIN}Simplify::${CRESET}deleteStackOnComplete`
+        opName = opName || `${CBEGIN}Simplify${CRESET} | deleteStackOnComplete`
         deleteExistingStack(options).then(function (data) {
             console.log(`${opName}-DeleteExistingStack: Deleting ${options.stackName}`);
             const whileStatusIsPending = function () {
@@ -557,8 +557,12 @@ const deleteStackOnComplete = function (options) {
                             resolve(data)
                         }
                     } else {
-                        console.error(`${opName}-DeleteExistingStack: ${CERROR}(ERROR)${CRESET} ${data.Error}`);
-                        reject(data.Error)
+                        if(data.Error.code === "ValidationError") {
+                            resolve({ RequestId: data.Error.requestId })
+                        } else {
+                            console.error(`${opName}-DeleteExistingStack: ${CERROR}(ERROR)${CRESET} ${data.Error}`);
+                            reject(data.Error)
+                        }
                     }
                 }, function (stackObject) {
                     console.log(`${opName}-DeleteExistingStack: ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
@@ -578,7 +582,7 @@ const deleteStackOnComplete = function (options) {
 
 const deleteFunctionLayerVersions = function (options) {
     var { adaptor, opName, functionConfig } = options
-    opName = opName || `${CBEGIN}Simplify::${CRESET}deleteFunctionLayerVersions`
+    opName = opName || `${CBEGIN}Simplify${CRESET} | deleteFunctionLayerVersions`
     return new Promise(function (resolve, reject) {
         let layerDeletionIndex = 0
         functionConfig.Layers = functionConfig.Layers || []
@@ -617,7 +621,7 @@ const deleteFunctionLayerVersions = function (options) {
 
 const deleteDeploymentBucket = function (options) {
     var { adaptor, opName, bucketName } = options
-    opName = opName || `${CBEGIN}Simplify::${CRESET}deleteDeploymentBucket`
+    opName = opName || `${CBEGIN}Simplify${CRESET} | deleteDeploymentBucket`
     return new Promise(function (resolve, reject) {
         adaptor.listObjects({ Bucket: bucketName }, function(err, data) {
             if (err) {
@@ -649,7 +653,7 @@ const deleteDeploymentBucket = function (options) {
 }
 
 const finishWithErrors = function(opName, err) {
-    opName = `${CBEGIN}Simplify::${CRESET}${opName}` || `${CBEGIN}Simplify::${CRESET}unknownOperation`
+    opName = `${CBEGIN}Simplify${CRESET} | ${opName}` || `${CBEGIN}Simplify${CRESET} | unknownOperation`
     console.error(`${opName}: \n - ${CERROR}${err}${CRESET} \n`)
     process.exit(255)
 }
@@ -660,7 +664,7 @@ const finishWithSuccess = function(message) {
 }
 
 const consoleWithMessage = function(opName, message) {
-    opName = `${CBEGIN}Simplify::${CRESET}${opName}` || `${CBEGIN}Simplify::${CRESET}unknownOperation`
+    opName = `${CBEGIN}Simplify${CRESET} | ${opName}` || `${CBEGIN}Simplify${CRESET} | unknownOperation`
     console.log(`\n - ${message} \n`)
 }
 

@@ -159,12 +159,10 @@ const checkStackStatusOnComplete = function (options, stackData) {
     opName = opName || `${CBEGIN}Simplify::${CRESET}checkStackStatusOnComplete`
     return new Promise(function (resolve, reject) {
         var params = {
-            StackName: stackData.StackId
+            StackName: stackData.StackId || stackData.StackName
         };
         adaptor.describeStacks(params, function (err, data) {
-            if (err) resolve({
-                Error: err
-            }); // resolve to FINISH in case there was an error
+            if (err) resolve({ Error: err }); // resolve to FINISH in case there was an error
             else {
                 var currentStack = data.Stacks.length > 0 ? data.Stacks[0] : stackData
                 if (data.Stacks.length && (
@@ -509,13 +507,18 @@ const createOrUpdateStackOnComplete = function (options) {
             console.log(`${opName}-CreateStackOrUpdate: Creating ${(data.StackName || data.StackId).truncate(50)}`);
             const whileStatusIsPending = function () {
                 checkStackStatusOnComplete(options, data).then(function (data) {
-                    console.log(`${opName}-CreateStackOrUpdate: ${CDONE}(OK)${CRESET} with ${data.StackStatus}`);
-                    if (data.StackStatus == "DELETE_COMPLETE" || data.StackStatus == "DELETE_FAILED" ||
-                        data.StackStatus == "ROLLBACK_COMPLETE" || data.StackStatus == "ROLLBACK_FAILED" ||
-                        data.StackStatus == "CLEANUP_COMPLETE") {
-                        reject(data)
+                    if (typeof data.Error === "undefined") {
+                        console.log(`${opName}-CreateStackOrUpdate: ${CDONE}(OK)${CRESET} with ${data.StackStatus}`);
+                        if (data.StackStatus == "DELETE_COMPLETE" || data.StackStatus == "DELETE_FAILED" ||
+                            data.StackStatus == "ROLLBACK_COMPLETE" || data.StackStatus == "ROLLBACK_FAILED" ||
+                            data.StackStatus == "CLEANUP_COMPLETE") {
+                            reject(data)
+                        } else {
+                            resolve(data)
+                        }
                     } else {
-                        resolve(data)
+                        console.error(`${opName}-CreateStackOrUpdate: ${CERROR}(ERROR)${CRESET} ${data.Error}`);
+                        reject(data.Error)
                     }
                 }, function (stackObject) {
                     console.log(`${opName}-CreateStackOrUpdate: ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
@@ -543,13 +546,19 @@ const deleteStackOnComplete = function (options) {
         deleteExistingStack(options).then(function (data) {
             console.log(`${opName}-DeleteExistingStack: Deleting ${options.stackName}`);
             const whileStatusIsPending = function () {
+                data.StackName = data.StackName || options.stackName
                 checkStackStatusOnComplete(options, data).then(function (data) {
-                    console.log(`${opName}-DeleteExistingStack: ${CDONE}(OK)${CRESET} with ${data.StackStatus}`);
-                    if (data.StackStatus == "DELETE_COMPLETE" || data.StackStatus == "DELETE_FAILED" ||
-                        data.StackStatus == "ROLLBACK_COMPLETE" || data.StackStatus == "ROLLBACK_FAILED") {
-                        reject(data)
+                    if (typeof data.Error === "undefined") {
+                        console.log(`${opName}-DeleteExistingStack: ${CDONE}(OK)${CRESET} with ${data.StackStatus}`);
+                        if (data.StackStatus == "DELETE_COMPLETE" || data.StackStatus == "DELETE_FAILED" ||
+                            data.StackStatus == "ROLLBACK_COMPLETE" || data.StackStatus == "ROLLBACK_FAILED") {
+                            reject(data)
+                        } else {
+                            resolve(data)
+                        }
                     } else {
-                        resolve(data)
+                        console.error(`${opName}-DeleteExistingStack: ${CERROR}(ERROR)${CRESET} ${data.Error}`);
+                        reject(data.Error)
                     }
                 }, function (stackObject) {
                     console.log(`${opName}-DeleteExistingStack: ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);

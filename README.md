@@ -1,6 +1,8 @@
 # Simplify Framework - Simplify SDK
   
-![Node.js CI](https://github.com/simplify-framework/pets-project/workflows/Node.js%20CI/badge.svg)
+![Devops CI/CD](https://github.com/simplify-framework/codegen/workflows/DevOps%20CI/CD/badge.svg)
+![NPM Downloads](https://img.shields.io/npm/dw/simplify-sdk)
+![Package Version](https://img.shields.io/github/package-json/v/simplify-framework/simplify?color=green)
 
 *This is a JavaScript SDK that help DevOps easier by integrating deployment process inline to your code. You will never want to be locked into any vendor for a tool. In FaaS architecture, a function can be very small but a project needs some (3-100) functions to orchestrate a workload. One CI/CD tool for all of them is quite vague to deploy your project when you just need to update one line of a function.*
 

@@ -6,7 +6,9 @@
 
 By using this SDK, you can breakdown your CI/CD tool as a function. Once again, FaaS concept now being applied for DevOps process. When you are micro focused into a function, a micro CI/CD function is beside of you. You're always feel safe and be efficiency. Simplify CodeGen generates a first code for you. It works well enough until you need to customize for your best fit. Happy OpenSource ￦
 
-To start, goto [simplify-codegen](https://github.com/simplify-framework/simplify-codegen)
+To start, choose one of two serverless models: OpenAPI or GraphQL 
+- [simplify-openapi](https://github.com/simplify-framework/simplify-openapi)
+- [simplify-graphql](https://github.com/simplify-framework/simplify-graphql)
 
 *`simplify-codegen` is a Node.js-based codegen using OpenAPI specs to generate your own project then use `simplify-sdk` for governance. This project was initially by tailoring from openapi-codegen to use the core code generation functionality to generate the lambda based node projects and AWS CloudFormation stack. There was many tailored code to become a powerful tool nowaday. Thanks to the initial openapi-codegen project that has saved time for developing an initial idea.*
 

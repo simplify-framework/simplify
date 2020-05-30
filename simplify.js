@@ -54,7 +54,7 @@ const getTimeMoment = function () {
 
 const showBoxBanner = function () {
     console.log("╓───────────────────────────────────────────────────────────────╖")
-    console.log("║                        Simplify Framework                     ║")
+    console.log("║              Simplify Framework - CodeDeploy                  ║")
     console.log("╙───────────────────────────────────────────────────────────────╜")
 }
 

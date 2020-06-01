@@ -664,8 +664,7 @@ const finishWithSuccess = function(message) {
 }
 
 const consoleWithMessage = function(opName, message) {
-    opName = `${CBEGIN}Simplify${CRESET} | ${opName}` || `${CBEGIN}Simplify${CRESET} | unknownOperation`
-    console.log(`\n - ${message} \n`)
+    console.log(`\n - ${opName + ':' || ''} ${message} \n`)
 }
 
 module.exports = {

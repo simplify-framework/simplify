@@ -54,8 +54,21 @@ const getTimeMoment = function () {
 
 const showBoxBanner = function () {
     console.log("╓───────────────────────────────────────────────────────────────╖")
-    console.log("║              Simplify Framework - CodeDeploy                  ║")
+    console.log("║               Simplify Framework - DevSecOps                  ║")
     console.log("╙───────────────────────────────────────────────────────────────╜")
+}
+
+const getFunctionSha256 = function (outputFilePath, name) {
+    if (fs.existsSync(outputFilePath)) {
+        let configOutput = JSON.parse(fs.readFileSync(outputFilePath))
+        return {
+            FileSha256: configOutput.Configuration.Environment.Variables[name],
+            HashSource: configOutput.Configuration.FunctionName
+        }
+    }
+    return {
+        FileSha256: "NOT_FOUND"
+    }
 }
 
 const parseTemplate = function (...args) {
@@ -246,7 +259,6 @@ const uploadLocalFile = function (options) {
             console.log(`${opName}-ReadFile: ${inputLocalFile.truncate(50)}`)
             fs.readFile(inputLocalFile, function (err, data) {
                 if (err) throw err;
-                const sha256Hex = crypto.createHash('sha256').update(data).digest('hex')
                 adaptor.createBucket(function (err) {
                     var params = {
                         Key: bucketKey + '/' + uploadFileName,
@@ -259,7 +271,7 @@ const uploadLocalFile = function (options) {
                                 reject(err)
                             } else {
                                 console.log(`${opName}-FileUpload: ${data.Location.truncate(50)}`)
-                                resolve({ ...data, FileSha256: sha256Hex })
+                                resolve({ ...data })
                             }
                         });
                     } else {
@@ -275,9 +287,9 @@ const uploadLocalFile = function (options) {
 }
 
 const uploadDirectoryAsZip = function (options) {
-    var { adaptor, opName, bucketKey, inputDirectory, outputFilePath } = options
+    var { adaptor, opName, bucketKey, inputDirectory, outputFilePath, hashInfo, fileName } = options
     opName = opName || `${CBEGIN}Simplify${CRESET} | uploadDirectoryAsZip`
-    var outputZippedFile = `${toDateStringFile()}.zip`
+    var outputZippedFile = `${fileName || toDateStringFile()}.zip`
     var outputZippedFilePath = path.join(outputFilePath, outputZippedFile)
     return new Promise(function (resolve, reject) {
         try {
@@ -285,9 +297,17 @@ const uploadDirectoryAsZip = function (options) {
             zip.addLocalFolder(inputDirectory)
             zip.writeZip(outputZippedFilePath)
             console.log(`${opName}-ZipFile: ${outputZippedFilePath.truncate(50)}`)
-            uploadLocalFile({ adaptor, opName, bucketKey, inputLocalFile: outputZippedFilePath }).then(function (data) {
-                resolve(data)
-            }).catch(function (err) { reject(err) })
+            const zipBuffer = Buffer.concat(zip.getEntries().map(e => {
+                return e.getData()
+            }))
+            const sha256Hex = crypto.createHash('sha256').update(zipBuffer).digest('hex')
+            if (sha256Hex === hashInfo.FileSha256) {
+                resolve(hashInfo)
+            } else {
+                uploadLocalFile({ adaptor, opName, bucketKey, inputLocalFile: outputZippedFilePath }).then(function (data) {
+                    resolve({ ...data, FileSha256: sha256Hex })
+                }).catch(function (err) { reject(err) })
+            }
         } catch (err) {
             console.error(`${opName}-ZipFile: ${CERROR}(ERROR)${CRESET} ${err}`);
             reject(err)
@@ -659,12 +679,12 @@ const finishWithErrors = function(opName, err) {
 }
 
 const finishWithSuccess = function(message) {
-    console.log(`\n - ${message} \n`)
+    console.log(`\n - ${message.truncate(150)} \n`)
     process.exit(0)
 }
 
 const consoleWithMessage = function(opName, message) {
-    console.log(`\n - ${opName + ':' || ''} ${message} \n`)
+    console.log(`\n - ${opName + ':' || ''} ${message.truncate(100)} \n`)
 }
 
 module.exports = {
@@ -672,6 +692,7 @@ module.exports = {
     parseTemplate,
     getInputConfig,
     uploadLocalFile,
+    getFunctionSha256,
     uploadLocalDirectory,
     uploadDirectoryAsZip,
     createOrUpdateStack,

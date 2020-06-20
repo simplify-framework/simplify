@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+'use strict';
 const path = require('path')
 const crypto = require('crypto')
 const fs = require('fs')
@@ -21,6 +23,12 @@ const CDONE = '\x1b[37m'
  * [Resource] adaptor.describeStacks(params, callback)
  * [APIGateway] adaptor.updateStage(params, callback)
  * [APIGateway] adaptor.createDeployment(params, callback)
+ * [KMS] adaptor.getKeyPolicy(params, callback)
+ * [KMS] adaptor.putKeyPolicy(params, callback)
+ * [CloudWatchLog] adaptor.associateKmsKey(params, callback)
+ * [CloudWatchLog] adaptor.disassociateKmsKey(params, callback)
+ * [CloudWatchLog] adaptor.putRetentionPolicy(params, callback)
+ * [CloudWatch] adaptor.getMetricStatistics(params, callback)
  */
 
 String.prototype.truncate = function (num) {
@@ -98,8 +106,12 @@ const parseTemplate = function (...args) {
 }
 
 const getInputConfig = function (...args) {
-    var configInputFilePath = args.shift()
-    var config = JSON.parse(fs.readFileSync(configInputFilePath))
+    let config = {}, firstParam = args.shift()
+    if (typeof firstParam === 'string') {
+        config = JSON.parse(fs.readFileSync(firstParam))
+    } else {
+        config = firstParam
+    }
     return parseTemplate(config, ...args)
 }
 
@@ -390,6 +402,18 @@ const updateFunctionConfiguration = function (options) {
     })
 }
 
+const getFunctionConfiguration = function (options) {
+    var { adaptor, opName, functionConfig } = options
+    opName = opName || `${CBEGIN}Simplify${CRESET} | getFunctionConfiguration`
+    return new Promise(function (resolve, reject) {
+        adaptor.getFunctionConfiguration({
+            FunctionName: functionConfig.FunctionName
+        }, function (err, functionData) {
+            err ? reject(err) : resolve(functionData)
+        })
+    })
+}
+
 const createFunctionLayerVersion = function (options) {
     var { adaptor, opName, bucketName, bucketKey, functionConfig, layerConfig } = options
     opName = opName || `${CBEGIN}Simplify${CRESET} | createFunctionLayerVersion`
@@ -577,7 +601,7 @@ const deleteStackOnComplete = function (options) {
                             resolve(data)
                         }
                     } else {
-                        if(data.Error.code === "ValidationError") {
+                        if (data.Error.code === "ValidationError") {
                             resolve({ RequestId: data.Error.requestId })
                         } else {
                             console.error(`${opName}-DeleteExistingStack: ${CERROR}(ERROR)${CRESET} ${data.Error}`);
@@ -622,7 +646,7 @@ const deleteFunctionLayerVersions = function (options) {
                             deleteOneLayerVersion(index)
                         } else {
                             console.log(`${opName}-DeleteLayerVersion: ${CDONE}(OK)${CRESET} ${layerOnlyARN.truncate(50)}:${layerVersionNumber}`);
-                            if (++layerDeletionIndex>=functionConfig.Layers.length) {
+                            if (++layerDeletionIndex >= functionConfig.Layers.length) {
                                 resolve(functionConfig.Layers)
                             }
                         }
@@ -643,20 +667,20 @@ const deleteDeploymentBucket = function (options) {
     var { adaptor, opName, bucketName } = options
     opName = opName || `${CBEGIN}Simplify${CRESET} | deleteDeploymentBucket`
     return new Promise(function (resolve, reject) {
-        adaptor.listObjects({ Bucket: bucketName }, function(err, data) {
+        adaptor.listObjects({ Bucket: bucketName }, function (err, data) {
             if (err) {
                 console.error(`${opName}-ListDeploymentObjects: ${CERROR}(ERROR)${CRESET} ${err}`)
                 reject(err)
             } else {
-                const bucketKeys = data.Contents.map(function(content) {
+                const bucketKeys = data.Contents.map(function (content) {
                     return { Key: content.Key }
                 })
-                adaptor.deleteObjects({ Bucket: bucketName, Delete: { Objects: bucketKeys, Quiet: true }}, function( err) {
+                adaptor.deleteObjects({ Bucket: bucketName, Delete: { Objects: bucketKeys, Quiet: true } }, function (err) {
                     if (err) {
                         console.error(`${opName}-DeleteDeploymentObjects: ${CERROR}(ERROR)${CRESET} ${err}`)
                         reject(err)
                     } else {
-                        adaptor.deleteBucket({ Bucket: bucketName }, function(err, data) {
+                        adaptor.deleteBucket({ Bucket: bucketName }, function (err, data) {
                             if (err) {
                                 console.error(`${opName}-DeleteDeploymentBucket: ${CERROR}(ERROR)${CRESET} ${err}`)
                                 reject(err)
@@ -672,19 +696,192 @@ const deleteDeploymentBucket = function (options) {
     })
 }
 
-const finishWithErrors = function(opName, err) {
+const enableOrDisableLogEncryption = function (options) {
+    const { adaptor, logger, functionInfo, retentionInDays, enableOrDisable } = options
+    opName = opName || `${CBEGIN}Simplify${CRESET} | enableLogEncryption`
+    return new Promise(function (resolve, reject) {
+        adaptor.getKeyPolicy({
+            KeyId: functionInfo.KMSKeyArn,
+            PolicyName: "default"
+        }, function (err, policy) {
+            if (err) reject(err);
+            else {
+                var policyData = JSON.parse(policy.Policy);
+                var existedLogGroups = false
+                const newPolicy = enableOrDisable ? {
+                    "Sid": `${functionInfo.FunctionName}-LogGroups-Permissions`,
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": logger.config.endpoint
+                    },
+                    "Action": [
+                        "kms:Encrypt*",
+                        "kms:Decrypt*",
+                        "kms:ReEncrypt*",
+                        "kms:GenerateDataKey*",
+                        "kms:Describe*"
+                    ],
+                    "Resource": [
+                        `${functionInfo.FunctionArn}`,
+                        `${functionInfo.KMSKeyArn}`
+                    ]
+                } : undefined
+                policyData.Statement = policyData.Statement.map(function (statement) {
+                    if (statement.Sid === `${functionInfo.FunctionName}-LogGroups-Permissions`) {
+                        existedLogGroups = true
+                        statement = newPolicy
+                    }
+                    return statement
+                })
+                if (!existedLogGroups && enableOrDisable) {
+                    policyData.Statement.push(newPolicy)
+                } else if (existedLogGroups && !enableOrDisable) {
+                    policyData.Statement = policyData.Statement.filter(function (statement) {
+                        return statement.Sid !== `${functionInfo.FunctionName}-LogGroups-Permissions`
+                    })
+                }
+                adaptor.putKeyPolicy({
+                    KeyId: functionInfo.KMSKeyArn,
+                    PolicyName: "default",
+                    Policy: JSON.stringify(policyData)
+                }, function (err, _) {
+                    if (err) reject(err);
+                    else {
+                        let params = {
+                            logGroupName: `/aws/lambda/${functionInfo.FunctionName}`
+                        };
+                        let actionName = 'associateKmsKey'
+                        if (!enableOrDisable /** disabled KMS */) {
+                            actionName = 'disassociateKmsKey'
+                        } else {
+                            params.kmsKeyId = functionInfo.KMSKeyArn
+                        }
+                        logger[actionName](params, function (err, _) {
+                            if (err) reject(err);
+                            else {
+                                logger.putRetentionPolicy({
+                                    logGroupName: `/aws/lambda/${functionInfo.FunctionName}`,
+                                    retentionInDays: retentionInDays
+                                }, function (err, _) {
+                                    if (err) reject(err);
+                                    else {
+                                        resolve(functionInfo)
+                                    }
+                                })
+                            }
+                        })
+                    }
+                })
+            }
+        })
+    })
+}
+
+const getFunctionMetricStatistics = function (options) {
+    const { adaptor, functions, metricName, periods, startDate, endDate } = options
+    let defaultDate = new Date()
+    defaultDate.setHours(defaultDate.getHours() - 6)
+    return new Promise((resolve, reject) => {
+        var params = {
+            EndTime: endDate || new Date(),
+            MetricName: metricName || 'Invocations', /* Duration - Invocations - Throttles - Errors - ConcurrentExecutions */
+            Namespace: 'AWS/Lambda', /* required */
+            Period: periods || 10, /* 12 x (5 minutes) */
+            StartTime: startDate || defaultDate,
+            Dimensions: functions.map(func => {
+                return {
+                    Name: 'FunctionName',
+                    Value: `${func.FunctionName}`
+                }
+            }),
+            Statistics: [
+                "SampleCount",
+                "Average",
+                "Sum",
+                "Minimum",
+                "Maximum",
+                /* more items */
+            ]
+        };
+        adaptor.getMetricStatistics(params, function (err, data) {
+            err ? reject(err) : resolve(data)
+        });
+    })
+}
+
+const getFunctionMetricData = function (options) {
+    const { adaptor, functions, periods, startDate, endDate } = options
+    let defaultDate = new Date()
+    defaultDate.setHours(defaultDate.getHours() - 6)
+    return new Promise((resolve, reject) => {
+        var params = {
+            StartTime: startDate || defaultDate,
+            EndTime: endDate || new Date(),
+            MaxDatapoints: 100800,
+            MetricDataQueries: [
+                {
+                    Id: "errorRate",
+                    Label: `* ErrorRate`,
+                    Expression: "invocationsMetric / errorsMetric"
+                }, {
+                    Id: `invocationsMetric`,
+                    Label: `Invocations`,
+                    MetricStat: {
+                        Metric: { /* required */
+                            Dimensions: functions.map(func => {
+                                return {
+                                    Name: 'FunctionName',
+                                    Value: `${func.FunctionName}`
+                                }
+                            }),
+                            MetricName: 'Invocations', /* Duration - Invocations - Throttles - Errors - ConcurrentExecutions */
+                            Namespace: 'AWS/Lambda', /* required */
+                        },
+                        Period: periods || 30,
+                        Stat: 'Sum', /* required */
+                        Unit: 'Count'
+                    },
+                    ReturnData: true
+                }, {
+                    Id: `errorsMetric`,
+                    Label: `     Errors`,
+                    MetricStat: {
+                        Metric: { /* required */
+                            Dimensions: functions.map(func => {
+                                return {
+                                    Name: 'FunctionName',
+                                    Value: `${func.FunctionName}`
+                                }
+                            }),
+                            MetricName: 'Errors', /* Duration - Invocations - Throttles - Errors - ConcurrentExecutions */
+                            Namespace: 'AWS/Lambda', /* required */
+                        },
+                        Period: periods || 30,
+                        Stat: 'Sum', /* required */
+                        Unit: "Count"
+                    },
+                    ReturnData: true
+                }]
+        }
+        adaptor.getMetricData(params, function (err, data) {
+            err ? reject(err) : resolve(data)
+        });
+    })
+}
+
+const finishWithErrors = function (opName, err) {
     opName = `${CBEGIN}Simplify${CRESET} | ${opName}` || `${CBEGIN}Simplify${CRESET} | unknownOperation`
     console.error(`${opName}: \n - ${CERROR}${err}${CRESET} \n`)
     process.exit(255)
 }
 
-const finishWithSuccess = function(message) {
-    console.log(`\n - ${message.truncate(150)} \n`)
+const finishWithSuccess = function (message) {
+    console.log(`\n * ${message.truncate(150)} \n`)
     process.exit(0)
 }
 
-const consoleWithMessage = function(opName, message) {
-    console.log(`\n - ${opName + ':' || ''} ${message.truncate(100)} \n`)
+const consoleWithMessage = function (opName, message) {
+    console.log(`\n * ${opName + ':' || ''} ${message.truncate(100)} \n`)
 }
 
 module.exports = {
@@ -701,9 +898,13 @@ module.exports = {
     deleteFunctionLayerVersions,
     createFunctionLayerVersion,
     updateFunctionConfiguration,
+    getFunctionConfiguration,
+    getFunctionMetricStatistics,
+    getFunctionMetricData,
     checkStackStatusOnComplete,
     createOrUpdateFunction,
     createOrUpdateStackOnComplete,
+    enableOrDisableLogEncryption,
     updateAPIGatewayDeployment,
     getFunctionMetaInfos,
     consoleWithMessage,

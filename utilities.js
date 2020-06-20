@@ -1,6 +1,19 @@
+#!/usr/bin/env node
+'use strict';
+const { printTable } = require('console-table-printer')
 const http = require('http')
 const crypto = require('crypto')
 const fs = require('fs')
+
+String.prototype.truncateLeft = function (num) {
+    if (this.length <= num) { return this }
+    return '...' + this.slice(this.length - num)
+}
+
+String.prototype.truncateRight = function (num) {
+    if (this.length <= num) { return this }
+    return this.slice(num) + '...'
+}
 
 const getOutputKeyValue = function(outputs, propKey) {
     var result = null
@@ -60,5 +73,6 @@ module.exports = {
     getOutputKeyValue,
     getSha256FileInHex,
     getSha256FileInBase64,
-    downloadFileFromUrl
+    downloadFileFromUrl,
+    printTableWithJSON: printTable,
 }

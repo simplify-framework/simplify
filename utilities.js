@@ -1,6 +1,54 @@
+#!/usr/bin/env node
+'use strict';
+const { printTable } = require('console-table-printer')
 const http = require('http')
 const crypto = require('crypto')
 const fs = require('fs')
+
+String.prototype.truncate = function (num) {
+    if (this.length <= num) { return this }
+    return '...' + this.slice(this.length - num)
+}
+
+String.prototype.toCamelCase = function () {
+    return this.replace(/(?:^\w|[A-Z]|\b\w)/g, function (word, index) {
+        return index === 0 ? word.toLowerCase() : word.toUpperCase();
+    }).replace(/\s+/g, '').split(' ').join('').split('-').join('');
+}
+
+String.prototype.truncateLeft = function (num) {
+    if (this.length <= num) { return this }
+    return '...' + this.slice(this.length - num)
+}
+
+String.prototype.truncateRight = function (num) {
+    if (this.length <= num) { return this }
+    return this.slice(num) + '...'
+}
+
+const toDateStringFile = function () {
+    var m = new Date();
+    return m.getFullYear() +
+        ("0" + (m.getMonth() + 1)).slice(-2) +
+        ("0" + m.getDate()).slice(-2) + "T" +
+        ("0" + m.getHours()).slice(-2) +
+        ("0" + m.getMinutes()).slice(-2) +
+        ("0" + m.getSeconds()).slice(-2)
+}
+
+const getDateToday = function () {
+    var m = new Date();
+    return m.getFullYear() + '-' +
+        ("0" + (m.getMonth() + 1)).slice(-2) + '-' +
+        ("0" + m.getDate()).slice(-2)
+}
+
+const getTimeMoment = function () {
+    var m = new Date();
+    return ("0" + m.getHours()).slice(-2) + ':' +
+        ("0" + m.getMinutes()).slice(-2) + ':' +
+        ("0" + m.getSeconds()).slice(-2)
+}
 
 const getOutputKeyValue = function(outputs, propKey) {
     var result = null
@@ -60,5 +108,9 @@ module.exports = {
     getOutputKeyValue,
     getSha256FileInHex,
     getSha256FileInBase64,
-    downloadFileFromUrl
+    downloadFileFromUrl,
+    printTableWithJSON: printTable,
+    toDateStringFile,
+    getDateToday,
+    getTimeMoment
 }

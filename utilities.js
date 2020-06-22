@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 'use strict';
-const { printTable } = require('console-table-printer')
+const { printTable, Table } = require('console-table-printer')
 const http = require('http')
 const crypto = require('crypto')
 const fs = require('fs')
@@ -110,6 +110,7 @@ module.exports = {
     getSha256FileInBase64,
     downloadFileFromUrl,
     printTableWithJSON: printTable,
+	PrintTable: Table,
     toDateStringFile,
     getDateToday,
     getTimeMoment

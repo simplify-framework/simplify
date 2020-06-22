@@ -110,7 +110,7 @@ module.exports = {
     getSha256FileInBase64,
     downloadFileFromUrl,
     printTableWithJSON: printTable,
-	PrintTable: Table,
+    PrintTable: Table,
     toDateStringFile,
     getDateToday,
     getTimeMoment

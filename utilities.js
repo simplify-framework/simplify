@@ -23,7 +23,7 @@ String.prototype.truncateLeft = function (num) {
 
 String.prototype.truncateRight = function (num) {
     if (this.length <= num) { return this }
-    return this.slice(num) + '...'
+    return this.slice(0, this.length - num) + '...'
 }
 
 const toDateStringFile = function () {

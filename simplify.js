@@ -723,12 +723,12 @@ const enableOrDisableLogEncryption = function (options) {
                             ]
                         } : undefined
                         policyData.Statement = policyData.Statement.map(function (statement) {
-                            if (statement.Sid === `${functionInfo.FunctionName}-LogGroups-Permissions`) {
+                            if (statement && statement.Sid === `${functionInfo.FunctionName}-LogGroups-Permissions`) {
                                 existedLogGroups = true
                                 statement = newPolicy
                             }
                             return statement
-                        })
+                        }).filter(state => state)
                         if (!existedLogGroups && enableOrDisable) {
                             policyData.Statement.push(newPolicy)
                         } else if (existedLogGroups && !enableOrDisable) {
@@ -922,8 +922,15 @@ const finishWithMessage = function (opName, message) {
     console.log(`\n * ${opName + ':' || ''} ${message.truncate(100)} \n`)
 }
 
-const consoleWithMessage = function (opName, message, slient) {
-    !slient ? console.log(`${opName}-${message.truncate(150)}`) : undefined
+var spinnerChars = ['|', '/', '-', '\\'];
+var spinnerIndex = 0;
+const silentWithSpinner = function() {
+	spinnerIndex = (spinnerIndex > 3) ? 0 : spinnerIndex;
+	process.stdout.write("\r" + spinnerChars[spinnerIndex++]);
+}
+
+const consoleWithMessage = function (opName, message, silent) {
+    !silent ? console.log(`${opName}-${message.truncate(150)}`) : silentWithSpinner()
 }
 
 module.exports = {

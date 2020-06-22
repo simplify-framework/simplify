@@ -5,9 +5,9 @@ const http = require('http')
 const crypto = require('crypto')
 const fs = require('fs')
 
-String.prototype.truncate = function (num) {
+String.prototype.truncate = function (num, chars) {
     if (this.length <= num) { return this }
-    return '...' + this.slice(this.length - num)
+    return (typeof chars === 'undefined' ? '...' : chars) + this.slice(this.length - num)
 }
 
 String.prototype.toCamelCase = function () {
@@ -16,14 +16,14 @@ String.prototype.toCamelCase = function () {
     }).replace(/\s+/g, '').split(' ').join('').split('-').join('');
 }
 
-String.prototype.truncateLeft = function (num) {
+String.prototype.truncateLeft = function (num, chars) {
     if (this.length <= num) { return this }
-    return '...' + this.slice(this.length - num)
+    return (typeof chars === 'undefined' ? '...' : chars) + this.slice(this.length - num)
 }
 
-String.prototype.truncateRight = function (num) {
+String.prototype.truncateRight = function (num, chars) {
     if (this.length <= num) { return this }
-    return this.slice(0, this.length - num) + '...'
+    return this.slice(0, this.length - num) + (typeof chars === 'undefined' ? '...' : chars)
 }
 
 const toDateStringFile = function () {

@@ -930,7 +930,7 @@ const silentWithSpinner = function() {
 }
 
 const consoleWithMessage = function (opName, message, silent) {
-    !silent ? console.log(`${opName}-${message.truncate(150)}`) : silentWithSpinner()
+    !silent ? process.stdout.write("\r") && console.log(`${CBEGIN}Simplify${CRESET} | ${opName}-${message.truncate(150)}`) : silentWithSpinner()
 }
 
 module.exports = {

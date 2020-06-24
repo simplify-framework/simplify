@@ -763,7 +763,21 @@ const enableOrDisableLogEncryption = function (options) {
                     }
                 })
             } else {
-                resolve(functionInfo)
+				let params = {
+					logGroupName: `/aws/lambda/${functionInfo.FunctionName}`
+				};
+				let actionName = 'associateKmsKey'
+				if (!enableOrDisable /** disabled KMS */) {
+					actionName = 'disassociateKmsKey'					
+					logger[actionName](params, function (err, _) {
+						if (err) reject(err);
+						else {
+							resolve(functionInfo)
+						}
+					})
+				} else {
+					reject(`Missing required key 'KMSKeyId' in function csv file`)
+				}
             }
         })
     })

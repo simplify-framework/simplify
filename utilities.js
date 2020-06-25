@@ -38,46 +38,46 @@ const formatBytes = function (bytes, decimals = 2) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
-const formatTimeSinceAgo = function(date) {
-  if (typeof date !== 'object') {
-    date = new Date(date);
-  }
-
-  var seconds = Math.floor((new Date() - date) / 1000);
-  var intervalType;
-
-  var interval = Math.floor(seconds / 31536000);
-  if (interval >= 1) {
-    intervalType = 'year';
-  } else {
-    interval = Math.floor(seconds / 2592000);
-    if (interval >= 1) {
-      intervalType = 'month';
-    } else {
-      interval = Math.floor(seconds / 86400);
-      if (interval >= 1) {
-        intervalType = 'day';
-      } else {
-        interval = Math.floor(seconds / 3600);
-        if (interval >= 1) {
-          intervalType = "hour";
-        } else {
-          interval = Math.floor(seconds / 60);
-          if (interval >= 1) {
-            intervalType = "minute";
-          } else {
-            interval = seconds;
-            intervalType = "second";
-          }
-        }
-      }
+const formatTimeSinceAgo = function (date) {
+    if (typeof date !== 'object') {
+        date = new Date(date);
     }
-  }
 
-  if (interval > 1 || interval === 0) {
-    intervalType += 's';
-  }
-  return interval + ' ' + intervalType + ' ago';
+    var seconds = Math.floor((new Date() - date) / 1000);
+    var intervalType;
+
+    var interval = Math.floor(seconds / 31536000);
+    if (interval >= 1) {
+        intervalType = 'year';
+    } else {
+        interval = Math.floor(seconds / 2592000);
+        if (interval >= 1) {
+            intervalType = 'month';
+        } else {
+            interval = Math.floor(seconds / 86400);
+            if (interval >= 1) {
+                intervalType = 'day';
+            } else {
+                interval = Math.floor(seconds / 3600);
+                if (interval >= 1) {
+                    intervalType = "hour";
+                } else {
+                    interval = Math.floor(seconds / 60);
+                    if (interval >= 1) {
+                        intervalType = "minute";
+                    } else {
+                        interval = seconds;
+                        intervalType = "second";
+                    }
+                }
+            }
+        }
+    }
+
+    if (interval > 1 || interval === 0) {
+        intervalType += 's';
+    }
+    return interval + ' ' + intervalType + ' ago';
 }
 
 const toDateStringFile = function () {
@@ -104,9 +104,9 @@ const getTimeMoment = function () {
         ("0" + m.getSeconds()).slice(-2)
 }
 
-const getOutputKeyValue = function(outputs, propKey) {
+const getOutputKeyValue = function (outputs, propKey) {
     var result = null
-    outputs.some(function(output) {
+    outputs.some(function (output) {
         if (output.OutputKey === propKey) {
             result = output.OutputValue
             return true
@@ -116,17 +116,17 @@ const getOutputKeyValue = function(outputs, propKey) {
     return result
 }
 
-const getSha256FileInHex = function(filePath) {
+const getSha256FileInHex = function (filePath) {
     const data = fs.readFileSync(filePath)
     return crypto.createHash('sha256').update(data).digest('hex')
 }
 
-const getSha256FileInBase64 = function(filePath) {
+const getSha256FileInBase64 = function (filePath) {
     const data = fs.readFileSync(filePath)
     return crypto.createHash('sha256').update(data).digest('base64')
 }
 
-const downloadFileFromUrl = function(url, dest) {
+const downloadFileFromUrl = function (url, dest) {
     return new Promise((resolve, reject) => {
         const file = fs.createWriteStream(dest, { flags: "wx" })
         const request = http.get(url, response => {
@@ -134,13 +134,13 @@ const downloadFileFromUrl = function(url, dest) {
                 response.pipe(file)
             } else {
                 file.close()
-                fs.unlink(dest, () => {})
+                fs.unlink(dest, () => { })
                 reject({ message: `Server responded with ${response.statusCode}: ${response.statusMessage}` });
             }
         })
         request.on("error", err => {
             file.close()
-            fs.unlink(dest, () => {})
+            fs.unlink(dest, () => { })
             reject(err)
         })
         file.on("finish", () => {
@@ -151,7 +151,7 @@ const downloadFileFromUrl = function(url, dest) {
             if (err.code === "EEXIST") {
                 reject({ message: "File already exists" });
             } else {
-                fs.unlink(dest, () => {})
+                fs.unlink(dest, () => { })
                 reject(err)
             }
         })
@@ -168,6 +168,6 @@ module.exports = {
     toDateStringFile,
     getDateToday,
     getTimeMoment,
-	formatBytes,
-	formatTimeSinceAgo
+    formatBytes,
+    formatTimeSinceAgo
 }

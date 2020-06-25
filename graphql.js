@@ -15,7 +15,7 @@ class StateExecution {
     runNextExecution({ event, context }, stateObject, states) {
         const _thisFunction = this
         return new Promise((resolve, reject) => {
-            const _stateFunction = require(path.join(_thisFunction.executionPath, stateObject.Run)).handler
+            const _stateFunction = require(`${path.join(_thisFunction.executionPath, stateObject.Run)}`).handler
             _thisFunction.verbose(`StateExecution:RUN_CONTEXT name = ${stateObject.Run} args =`, JSON.stringify(event.args))
             _stateFunction(event, context, function (err, data) {
                 if (err && stateObject.Other !== "DONE") {

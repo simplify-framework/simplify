@@ -918,7 +918,7 @@ const getFunctionMetricData = function (options) {
                     Namespace: 'AWS/Lambda', /* required */
                 },
                 Period: periods || 300,
-                Stat: 'Average'
+                Stat: 'Sum'
             },
             ReturnData: true
         })

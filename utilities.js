@@ -26,7 +26,7 @@ String.prototype.truncateRight = function (num, chars) {
     return this.slice(0, this.length - num) + (typeof chars === 'undefined' ? '...' : chars)
 }
 
-const formatBytes = function (bytes, decimals = 2) {
+const formatBytesToKBMB = function (bytes, decimals = 2) {
     if (bytes === 0) return '0 Bytes';
 
     const k = 1024;
@@ -168,6 +168,6 @@ module.exports = {
     toDateStringFile,
     getDateToday,
     getTimeMoment,
-    formatBytes,
+    formatBytesToKBMB,
     formatTimeSinceAgo
 }

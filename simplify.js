@@ -686,100 +686,114 @@ const deleteDeploymentBucket = function (options) {
     })
 }
 
-const enableOrDisableLogEncryption = function (options) {
+const setupKMSLogEncryption = function (options) {
     var { adaptor, logger, opName, functionInfo, retentionInDays, enableOrDisable } = options
-    opName = opName || `${CBEGIN}Simplify${CRESET} | enableLogEncryption`
+    opName = opName || `${CBEGIN}Simplify${CRESET} | setupKMSLogEncryption`
     return new Promise(function (resolve, reject) {
-        logger.putRetentionPolicy({
-            logGroupName: `/aws/lambda/${functionInfo.FunctionName}`,
-            retentionInDays: retentionInDays
-        }, function (err, _) {
-            if (err) reject(err);
-            else if (functionInfo.KMSKeyArn) {
-                adaptor.getKeyPolicy({
-                    KeyId: functionInfo.KMSKeyArn,
-                    PolicyName: "default"
-                }, function (err, policy) {
-                    if (err) reject(err);
-                    else {
-                        let policyData = JSON.parse(policy.Policy);
-                        let existedLogGroups = false
-                        const newPolicy = enableOrDisable ? {
-                            "Sid": `${functionInfo.FunctionName}-LogGroups-Permissions`,
-                            "Effect": "Allow",
-                            "Principal": {
-                                "Service": logger.config.endpoint
-                            },
-                            "Action": [
-                                "kms:Encrypt*",
-                                "kms:Decrypt*",
-                                "kms:ReEncrypt*",
-                                "kms:GenerateDataKey*",
-                                "kms:Describe*"
-                            ],
-                            "Resource": [
-                                `${functionInfo.FunctionArn}`,
-                                `${functionInfo.KMSKeyArn}`
-                            ]
-                        } : undefined
-                        policyData.Statement = policyData.Statement.map(function (statement) {
-                            if (statement && statement.Sid === `${functionInfo.FunctionName}-LogGroups-Permissions`) {
-                                existedLogGroups = true
-                                statement = newPolicy
+        if (functionInfo.KMSKeyArn) {
+            adaptor.getKeyPolicy({
+                KeyId: functionInfo.KMSKeyArn,
+                PolicyName: "default"
+            }, function (err, policy) {
+                if (err) reject(err);
+                else {
+                    let policyData = JSON.parse(policy.Policy);
+                    let existedLogGroups = false
+                    const newPolicy = enableOrDisable ? {
+                        "Sid": `${functionInfo.FunctionName}-LogGroups-Permissions`,
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": logger.config.endpoint
+                        },
+                        "Action": [
+                            "kms:Encrypt*",
+                            "kms:Decrypt*",
+                            "kms:ReEncrypt*",
+                            "kms:GenerateDataKey*",
+                            "kms:Describe*"
+                        ],
+                        "Resource": [
+                            `${functionInfo.FunctionArn}`,
+                            `${functionInfo.KMSKeyArn}`
+                        ]
+                    } : undefined
+                    policyData.Statement = policyData.Statement.map(function (statement) {
+                        if (statement && statement.Sid === `${functionInfo.FunctionName}-LogGroups-Permissions`) {
+                            existedLogGroups = true
+                            statement = newPolicy
+                        }
+                        return statement
+                    }).filter(state => state)
+                    if (!existedLogGroups && enableOrDisable) {
+                        policyData.Statement.push(newPolicy)
+                    } else if (existedLogGroups && !enableOrDisable) {
+                        policyData.Statement = policyData.Statement.filter(function (statement) {
+                            return statement.Sid !== `${functionInfo.FunctionName}-LogGroups-Permissions`
+                        })
+                    }
+                    adaptor.putKeyPolicy({
+                        KeyId: functionInfo.KMSKeyArn,
+                        PolicyName: "default",
+                        Policy: JSON.stringify(policyData)
+                    }, function (err, _) {
+                        if (err) reject(err);
+                        else {
+                            let params = {
+                                logGroupName: `/aws/lambda/${functionInfo.FunctionName}`
+                            };
+                            let actionName = 'associateKmsKey'
+                            if (!enableOrDisable /** disabled KMS */) {
+                                actionName = 'disassociateKmsKey'
+                            } else {
+                                params.kmsKeyId = functionInfo.KMSKeyArn
                             }
-                            return statement
-                        }).filter(state => state)
-                        if (!existedLogGroups && enableOrDisable) {
-                            policyData.Statement.push(newPolicy)
-                        } else if (existedLogGroups && !enableOrDisable) {
-                            policyData.Statement = policyData.Statement.filter(function (statement) {
-                                return statement.Sid !== `${functionInfo.FunctionName}-LogGroups-Permissions`
+                            logger[actionName](params, function (err, _) {
+                                if (err) reject(err);
+                                else {
+                                    resolve(functionInfo)
+                                }
                             })
                         }
-                        adaptor.putKeyPolicy({
-                            KeyId: functionInfo.KMSKeyArn,
-                            PolicyName: "default",
-                            Policy: JSON.stringify(policyData)
-                        }, function (err, _) {
-                            if (err) reject(err);
-                            else {
-                                let params = {
-                                    logGroupName: `/aws/lambda/${functionInfo.FunctionName}`
-                                };
-                                let actionName = 'associateKmsKey'
-                                if (!enableOrDisable /** disabled KMS */) {
-                                    actionName = 'disassociateKmsKey'
-                                } else {
-                                    params.kmsKeyId = functionInfo.KMSKeyArn
-                                }
-                                logger[actionName](params, function (err, _) {
-                                    if (err) reject(err);
-                                    else {
-                                        resolve(functionInfo)
-                                    }
-                                })
-                            }
-                        })
+                    })
+                }
+            })
+        } else {
+            let params = {
+                logGroupName: `/aws/lambda/${functionInfo.FunctionName}`
+            };
+            let actionName = 'associateKmsKey'
+            if (!enableOrDisable /** disabled KMS */) {
+                actionName = 'disassociateKmsKey'
+                logger[actionName](params, function (err, _) {
+                    if (err) reject(err);
+                    else {
+                        resolve(functionInfo)
                     }
                 })
             } else {
-				let params = {
-					logGroupName: `/aws/lambda/${functionInfo.FunctionName}`
-				};
-				let actionName = 'associateKmsKey'
-				if (!enableOrDisable /** disabled KMS */) {
-					actionName = 'disassociateKmsKey'					
-					logger[actionName](params, function (err, _) {
-						if (err) reject(err);
-						else {
-							resolve(functionInfo)
-						}
-					})
-				} else {
-					reject(`Missing required key 'KMSKeyId' in function csv file`)
-				}
+                reject(`Missing required key 'KMSKeyId' in function csv file`)
             }
-        })
+        }
+    })
+}
+
+const enableOrDisableLogEncryption = function (options) {
+    var { adaptor, logger, opName, functionInfo, retentionInDays, enableOrDisable } = options
+    opName = opName || `${CBEGIN}Simplify${CRESET} | enableOrDisableLogEncryption`
+    return new Promise(function (resolve, reject) {
+        if (typeof retentionInDays !== 'undefined') {
+            logger.putRetentionPolicy({
+                logGroupName: `/aws/lambda/${functionInfo.FunctionName}`,
+                retentionInDays: retentionInDays
+            }, function (err, _) {
+                if (err) reject(err);
+                else {
+                    setupKMSLogEncryption(options).then(data => resolve(data)).catch(err => reject(err))
+                }
+            })
+        } else {
+            resolve({})
+        }
     })
 }
 
@@ -938,9 +952,9 @@ const finishWithMessage = function (opName, message) {
 
 var spinnerChars = ['|', '/', '-', '\\'];
 var spinnerIndex = 0;
-const silentWithSpinner = function() {
-	spinnerIndex = (spinnerIndex > 3) ? 0 : spinnerIndex;
-	process.stdout.write("\r" + spinnerChars[spinnerIndex++]);
+const silentWithSpinner = function () {
+    spinnerIndex = (spinnerIndex > 3) ? 0 : spinnerIndex;
+    process.stdout.write("\r" + spinnerChars[spinnerIndex++]);
 }
 
 const consoleWithMessage = function (opName, message, silent) {

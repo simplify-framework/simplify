@@ -1,3 +1,6 @@
+#!/usr/bin/env node
+'use strict';
+
 const AWS = require('aws-sdk')
 const CBEGIN='\x1b[32m'
 const CERROR='\x1b[31m'
@@ -29,7 +32,7 @@ module.exports = {
                 } else {
                     AWS.config.update({ credentials: credentials });
                     console.log(`${CBEGIN}Simplify${CRESET} | AWSProvider-Credentials: ${AWS.config.credentials.profile ? AWS.config.credentials.profile : 'default'}`)
-                    s3BucketParams.Bucket = config.Bucket.Name
+                    s3BucketParams.Bucket = (config.Bucket || {}).Name
                     if (config.Region != 'us-east-1') {
                         s3BucketParams.CreateBucketConfiguration = {
                             LocationConstraint: config.Region
@@ -67,6 +70,22 @@ module.exports = {
     getAPIGateway: function () {
         return new AWS.APIGateway({
             apiVersion: '2015-07-09',
+            region: awsconfig.Region
+        })
+    },
+    getLogger: function () {
+        return new AWS.CloudWatchLogs({
+            apiVersion: '2014-03-28', region: awsconfig.Region
+        })
+    },
+    getMetrics: function () {
+        return new AWS.CloudWatch({
+            apiVersion: '2010-08-01', region: awsconfig.Region
+        })
+    },
+    getKMS: function () {
+        return new AWS.KMS({
+            apiVersion: '2014-11-01',
             region: awsconfig.Region
         })
     }

@@ -1,24 +1,32 @@
 'use strict';
 const path = require('path')
+if (typeof __non_webpack_require__ === 'undefined') global.__non_webpack_require__ = require
 
 class StateExecution {
-
+    
     constructor({ executionPath, verbosity }) {
         this.executionPath = executionPath || path.join(__dirname, "Functions")
         this.verbosity = verbosity
+        this.STATE_FINISH = [ "DONE", "ERROR" ]
     }
 
     verbose(...args) {
         this.verbosity && console.log(...args)
     }
 
+    isFinished(state) {
+        return this.STATE_FINISH.indexOf(state) === -1 ? false : true
+    }
+
     runNextExecution({ event, context }, stateObject, states) {
         const _thisFunction = this
+        
         return new Promise((resolve, reject) => {
-            const _stateFunction = require(`${path.join(_thisFunction.executionPath, stateObject.Run)}`).handler
+            const _modulePath = `${path.join(_thisFunction.executionPath, stateObject.Run)}`
+            const _stateFunction = __non_webpack_require__(_modulePath).handler
             _thisFunction.verbose(`StateExecution:RUN_CONTEXT name = ${stateObject.Run} args =`, JSON.stringify(event.args))
             _stateFunction(event, context, function (err, data) {
-                if (err && stateObject.Other !== "DONE") {
+                if (err && !_thisFunction.isFinished(stateObject.Other)) {
                     event.dataContext = data
                     event.errorContext = err
                     event.retryState = event.retryState || stateObject.Retry
@@ -31,7 +39,7 @@ class StateExecution {
                         _thisFunction.verbose(`StateExecution:OTHER_CONTEXT name = ${nextState.Run}`)
                         _thisFunction.runNextExecution({ event, context }, nextState, states).then(data => resolve(data)).catch(err => reject(err))
                     }
-                } else if (err && stateObject.Other === "DONE") {
+                } else if (err && _thisFunction.isFinished(stateObject.Other)) {
                     event.retryState = event.retryState || stateObject.Retry
                     if (event.retryState && --event.retryState > 0) {
                         _thisFunction.verbose(`StateExecution:RETRY_CONTEXT name = ${stateObject.Run} count = ${event.retryState}`)
@@ -40,14 +48,14 @@ class StateExecution {
                         _thisFunction.verbose(`StateExecution:ERROR_CONTEXT name = ${stateObject.Run}`)
                         reject(err)
                     }
-                } else if (!err && stateObject.Next !== "DONE") {
+                } else if (!err && !_thisFunction.isFinished(stateObject.Next)) {
                     event.dataContext = data
                     event.errorContext = err
                     const nextState = states.find(state => state.Run === stateObject.Next)
                     if (!nextState) reject({ message: `The execution state is not available: ${stateObject.Next}` })
                     _thisFunction.verbose(`StateExecution:NEXT_CONTEXT name = ${nextState.Run}`)
                     _thisFunction.runNextExecution({ event, context }, nextState, states).then(data => resolve(data)).catch(err => reject(err))
-                } else if (!err && stateObject.Next === "DONE") {
+                } else if (!err && _thisFunction.isFinished(stateObject.Next)) {
                     _thisFunction.verbose(`StateExecution:DONE_CONTEXT name = ${stateObject.Run}`)
                     resolve(data)
                 }

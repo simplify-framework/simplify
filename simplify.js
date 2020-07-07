@@ -404,7 +404,6 @@ const createFunctionLayerVersion = function (options) {
                 consoleWithMessage(`${opName}`, `CreateLayerVersion: ${CERROR}(ERROR)${CRESET} ${err}`);
                 reject(err)
             } else {
-                consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${layerConfig.LayerName}`);
                 if (!functionConfig.Layers) functionConfig.Layers = []
                 let layerIndex = -1
                 let existedLayerArn = functionConfig.Layers.find(function (layerArn, index) {
@@ -418,18 +417,26 @@ const createFunctionLayerVersion = function (options) {
                     functionConfig.Layers.push(data.LayerVersionArn)
                 }
                 data.Layers = functionConfig.Layers
-                adaptor.updateFunctionConfiguration({
-                    FunctionName: functionConfig.FunctionName,
-                    Layers: functionConfig.Layers,
-                    Environment: functionConfig.Environment
-                }, function (err, _) {
-                    if (err) {
-                        consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${CERROR}(ERROR)${CRESET} ${err}`);
-                        reject(err)
-                    } else {
-                        consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${CDONE}(OK)${CRESET}`);
-                        resolve(data)
-                    }
+                let FunctionNames = []
+                if (Array.isArray(functionConfig.FunctionName)) {
+                    FunctionNames = functionConfig.FunctionName
+                } else {
+                    FunctionNames.push(functionConfig.FunctionName)
+                }
+                FunctionNames.map(functionName => {
+                    adaptor.updateFunctionConfiguration({
+                        FunctionName: functionName,
+                        Layers: functionConfig.Layers,
+                        Environment: functionConfig.Environment
+                    }, function (err, _) {
+                        if (err) {
+                            consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${functionName} ${CERROR}(ERROR)${CRESET} ${err}`);
+                            reject(err)
+                        } else {
+                            consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${functionName} ${CDONE}(OK)${CRESET}`);
+                            resolve(data)
+                        }
+                    })
                 })
             }
         });

@@ -417,13 +417,14 @@ const createFunctionLayerVersion = function (options) {
                     functionConfig.Layers.push(data.LayerVersionArn)
                 }
                 data.Layers = functionConfig.Layers
-                let FunctionNames = []
+                let listFunctionNames = []
+                let indexFunctionName = 0
                 if (Array.isArray(functionConfig.FunctionName)) {
-                    FunctionNames = functionConfig.FunctionName
+                    listFunctionNames = functionConfig.FunctionName
                 } else {
-                    FunctionNames.push(functionConfig.FunctionName)
+                    listFunctionNames.push(functionConfig.FunctionName)
                 }
-                FunctionNames.map(functionName => {
+                listFunctionNames.map(functionName => {
                     adaptor.updateFunctionConfiguration({
                         FunctionName: functionName,
                         Layers: functionConfig.Layers,
@@ -431,10 +432,11 @@ const createFunctionLayerVersion = function (options) {
                     }, function (err, _) {
                         if (err) {
                             consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${functionName} ${CERROR}(ERROR)${CRESET} ${err}`);
-                            reject(err)
                         } else {
                             consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${functionName} ${CDONE}(OK)${CRESET}`);
-                            resolve(data)
+                        }
+                        if (++indexFunctionName >= listFunctionNames.length) {
+                            err ? reject(err): resolve(data)
                         }
                     })
                 })

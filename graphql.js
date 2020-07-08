@@ -44,6 +44,7 @@ class StateExecution {
                         _thisFunction.verbose(`StateExecution:RETRY_CONTEXT name = ${stateObject.Run} count = ${event.retryState}`)
                         _thisFunction.runNextExecution({ event, context }, stateObject, states).then(data => resolve(data)).catch(err => reject(err))
                     } else {
+                        _thisFunction.verbose(`StateExecution:ERROR name = ${stateObject.Run} error =`, JSON.stringify(event.errorContext))
                         reject(err)
                     }
                 } else if (!err && !_thisFunction.isFinished(stateObject.Next)) {
@@ -53,6 +54,7 @@ class StateExecution {
                     if (!nextState) reject({ message: `The execution state is not available: ${stateObject.Next}` })
                     _thisFunction.runNextExecution({ event, context }, nextState, states).then(data => resolve(data)).catch(err => reject(err))
                 } else if (!err && _thisFunction.isFinished(stateObject.Next)) {
+                    _thisFunction.verbose(`StateExecution:FINISH name = ${stateObject.Run} data =`, JSON.stringify(event.dataContext))
                     resolve(data)
                 }
             })

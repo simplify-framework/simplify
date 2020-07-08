@@ -36,6 +36,7 @@ class StateExecution {
                     } else {
                         const nextState = states.find(state => state.Run === stateObject.Other)
                         if (!nextState) reject({ message: `The execution state is not available: ${stateObject.Other}` })
+                        _thisFunction.verbose(`StateExecution:RESULT name = ${stateObject.Run} error =`, JSON.stringify(event.errorContext))
                         _thisFunction.runNextExecution({ event, context }, nextState, states).then(data => resolve(data)).catch(err => reject(err))
                     }
                 } else if (err && _thisFunction.isFinished(stateObject.Other)) {
@@ -44,7 +45,7 @@ class StateExecution {
                         _thisFunction.verbose(`StateExecution:RETRY_CONTEXT name = ${stateObject.Run} count = ${event.retryState}`)
                         _thisFunction.runNextExecution({ event, context }, stateObject, states).then(data => resolve(data)).catch(err => reject(err))
                     } else {
-                        _thisFunction.verbose(`StateExecution:ERROR name = ${stateObject.Run} error =`, JSON.stringify(event.errorContext))
+                        _thisFunction.verbose(`StateExecution:ERROR name = ${stateObject.Run} error =`, JSON.stringify(err))
                         reject(err)
                     }
                 } else if (!err && !_thisFunction.isFinished(stateObject.Next)) {
@@ -52,9 +53,10 @@ class StateExecution {
                     event.errorContext = err
                     const nextState = states.find(state => state.Run === stateObject.Next)
                     if (!nextState) reject({ message: `The execution state is not available: ${stateObject.Next}` })
+                    _thisFunction.verbose(`StateExecution:RESULT name = ${stateObject.Run} data =`, JSON.stringify(event.dataContext))
                     _thisFunction.runNextExecution({ event, context }, nextState, states).then(data => resolve(data)).catch(err => reject(err))
                 } else if (!err && _thisFunction.isFinished(stateObject.Next)) {
-                    _thisFunction.verbose(`StateExecution:FINISH name = ${stateObject.Run} data =`, JSON.stringify(event.dataContext))
+                    _thisFunction.verbose(`StateExecution:FINISH name = ${stateObject.Run} data =`, JSON.stringify(data))
                     resolve(data)
                 }
             })

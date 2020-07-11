@@ -91,10 +91,11 @@ const getInputConfig = function (...args) {
 const updateFunctionRolePolicy = function(options) {
     var { adaptor, opName, policyName, policyDocument, functionConfig } = options
     opName = opName || `updateFunctionRolePolicy`
+    const roleFunctionName = functionConfig.Role.split('/')[1]
     var params = {
-        PolicyDocument: policyDocument,
-        PolicyName: policyName,
-        RoleName: functionConfig.Function.Role
+        PolicyDocument: JSON.stringify(policyDocument),
+        PolicyName: policyName || `${roleFunctionName}AttachedPolicy`,
+        RoleName: roleFunctionName
     };
     return new Promise(function (resolve, reject) {  
         adaptor.putRolePolicy(params, function (err, data) {

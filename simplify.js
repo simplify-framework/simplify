@@ -30,6 +30,7 @@ const CDONE = '\x1b[37m'
  * [CloudWatchLog] adaptor.disassociateKmsKey(params, callback)
  * [CloudWatchLog] adaptor.putRetentionPolicy(params, callback)
  * [CloudWatch] adaptor.getMetricStatistics(params, callback)
+ * [IAM] updateFunctionRolePolicy(params, callback)
  */
 
 const showBoxBanner = function () {
@@ -87,6 +88,21 @@ const getInputConfig = function (...args) {
     return parseTemplate(config, ...args)
 }
 
+const updateFunctionRolePolicy = function(options) {
+    var { adaptor, opName, policyName, policyDocument, functionConfig } = options
+    opName = opName || `updateFunctionRolePolicy`
+    var params = {
+        PolicyDocument: policyDocument,
+        PolicyName: policyName,
+        RoleName: functionConfig.Function.Role
+    };
+    return new Promise(function (resolve, reject) {  
+        adaptor.putRolePolicy(params, function (err, data) {
+            err ? reject(err) : resolve(data)
+        });
+    })
+}
+
 const createOrUpdateStack = function (options) {
     var { adaptor, opName, stackName, stackParameters, stackTemplate } = options
     opName = opName || `createOrUpdateStack`
@@ -141,10 +157,10 @@ const createOrUpdateStack = function (options) {
 const deleteExistingStack = function (options) {
     var { adaptor, opName, stackName } = options
     opName = opName || `deleteExistingStack`
-    return new Promise(function (resolve, reject) {
-        var params = {
-            StackName: stackName
-        };
+    var params = {
+        StackName: stackName
+    };
+    return new Promise(function (resolve, reject) {  
         adaptor.deleteStack(params, function (err, data) {
             err ? reject(err) : resolve(data)
         });
@@ -989,6 +1005,7 @@ module.exports = {
     getFunctionConfiguration,
     getFunctionMetricStatistics,
     getFunctionMetricData,
+    updateFunctionRolePolicy,
     checkStackStatusOnComplete,
     createOrUpdateFunction,
     createOrUpdateStackOnComplete,

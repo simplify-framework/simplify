@@ -88,5 +88,10 @@ module.exports = {
             apiVersion: '2014-11-01',
             region: awsconfig.Region
         })
+    },
+    getIAM: function () {
+        return new AWS.IAM({
+            apiVersion: '2010-05-08'
+        })
     }
 }

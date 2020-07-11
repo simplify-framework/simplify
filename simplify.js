@@ -7,6 +7,7 @@ const AdmZip = require('adm-zip')
 const utilities = require('./utilities')
 const CBEGIN = '\x1b[32m'
 const CERROR = '\x1b[31m'
+const CNOTIF = '\x1b[33m'
 const CRESET = '\x1b[0m'
 const CDONE = '\x1b[37m'
 /**
@@ -31,6 +32,7 @@ const CDONE = '\x1b[37m'
  * [CloudWatchLog] adaptor.putRetentionPolicy(params, callback)
  * [CloudWatch] adaptor.getMetricStatistics(params, callback)
  * [IAM] updateFunctionRolePolicy(params, callback)
+ * [IAM] deleteFunctionRolePolicy(params, callback)
  */
 
 const showBoxBanner = function () {
@@ -100,6 +102,21 @@ const updateFunctionRolePolicy = function(options) {
     return new Promise(function (resolve, reject) {  
         adaptor.putRolePolicy(params, function (err, data) {
             err ? reject(err) : resolve(data)
+        });
+    })
+}
+
+const deleteFunctionRolePolicy = function(options) {
+    var { adaptor, opName, policyName, functionConfig } = options
+    opName = opName || `deleteFunctionRolePolicy`
+    const roleFunctionName = functionConfig.Role.split('/')[1]
+    var params = {
+        PolicyName: policyName || `${roleFunctionName}AttachedPolicy`,
+        RoleName: roleFunctionName
+    };
+    return new Promise(function (resolve) {  
+        adaptor.deleteRolePolicy(params, function () {
+            resolve(params)
         });
     })
 }
@@ -645,7 +662,7 @@ const deleteFunctionLayerVersions = function (options) {
     opName = opName || `deleteFunctionLayerVersions`
     return new Promise(function (resolve, reject) {
         let layerDeletionIndex = 0
-        functionConfig.Layers = functionConfig.Layers || []
+        functionConfig.Layers = functionConfig.Layers || resolve([])
         functionConfig.Layers.forEach(function (layer) {
             const layerArnWithVersion = layer.split(':')
             const layerOnlyARN = layerArnWithVersion.splice(0, layerArnWithVersion.length - 1).join(':')
@@ -989,6 +1006,11 @@ const consoleWithMessage = function (opName, message, silent) {
     !silent ? process.stdout.write("\r") && console.log(`${opName}-${message.truncate(150)}`) : silentWithSpinner()
 }
 
+const consoleWithErrors = function (opName, error, silent) {
+    opName = `${CBEGIN}Simplify${CRESET} | ${opName}` || `${CBEGIN}Simplify${CRESET} | unknownOperation`
+    !silent ? process.stdout.write("\r") && console.log(`${opName}-${CNOTIF}${error.message.truncate(150)}${CRESET}`) : silentWithSpinner()
+}
+
 module.exports = {
     showBoxBanner,
     parseTemplate,
@@ -1007,6 +1029,7 @@ module.exports = {
     getFunctionMetricStatistics,
     getFunctionMetricData,
     updateFunctionRolePolicy,
+    deleteFunctionRolePolicy,
     checkStackStatusOnComplete,
     createOrUpdateFunction,
     createOrUpdateStackOnComplete,
@@ -1014,6 +1037,7 @@ module.exports = {
     updateAPIGatewayDeployment,
     getFunctionMetaInfos,
     consoleWithMessage,
+    consoleWithErrors,
     finishWithMessage,
     finishWithSuccess,
     finishWithErrors

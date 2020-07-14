@@ -4,6 +4,10 @@ const { printTable, Table } = require('console-table-printer')
 const http = require('http')
 const crypto = require('crypto')
 const fs = require('fs')
+const { promisify } = require('util');
+const { resolve } = require('path');
+const readdir = promisify(fs.readdir);
+const stat = promisify(fs.stat);
 
 String.prototype.truncate = function (num, chars) {
     if (this.length <= num) { return this }
@@ -158,6 +162,15 @@ const downloadFileFromUrl = function (url, dest) {
     })
 }
 
+async function getFilesInDirectory(dir) {
+    const subdirs = await readdir(dir);
+    const files = await Promise.all(subdirs.map(async (subdir) => {
+      const res = resolve(dir, subdir);
+      return (await stat(res)).isDirectory() ? getFilesInDirectory(res) : res;
+    }));
+    return files.reduce((a, f) => a.concat(f), []);
+}
+
 module.exports = {
     getOutputKeyValue,
     getSha256FileInHex,
@@ -169,5 +182,6 @@ module.exports = {
     getDateToday,
     getTimeMoment,
     formatBytesToKBMB,
-    formatTimeSinceAgo
+    formatTimeSinceAgo,
+    getFilesInDirectory
 }

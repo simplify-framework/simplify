@@ -220,42 +220,52 @@ const checkStackStatusOnComplete = function (options, stackData) {
 }
 
 const uploadLocalDirectory = function (options) {
-    var { adaptor, opName, bucketKey, inputDirectory } = options
+    var { adaptor, opName, publicACL, bucketName, bucketKey, inputDirectory } = options
     opName = opName || `uploadLocalDirectory`
     return new Promise(function (resolve, reject) {
         adaptor.createBucket(function (err) {
             if (!err || (err.code == 'BucketAlreadyOwnedByYou')) {
-                fs.readdir(inputDirectory, function (err, files) {
-                    if (err) reject(err)
-                    else {
-                        var index = 0
-                        var fileInfos = []
-                        files.forEach(function (fileName) {
-                            var filePath = path.resolve(path.join(inputDirectory, fileName))
-                            fs.readFile(filePath, function (err, data) {
-                                if (err) reject(err)
-                                else {
-                                    var params = {
-                                        Key: bucketKey + '/' + fileName,
-                                        Body: data
-                                    };
-                                    adaptor.upload(params, function (err, data) {
-                                        if (err) {
-                                            consoleWithMessage(`${opName}`, `FileUpload: ${CERROR}(ERROR)${CRESET} ${err}`)
-                                            reject(err)
-                                        } else {
-                                            fileInfos.push(data)
-                                            consoleWithMessage(`${opName}`, `FileUpload: ${params.Key}`)
-                                            if (++index >= files.length) {
-                                                resolve(fileInfos)
-                                            }
-                                        }
-                                    });
+                utilities.getFilesInDirectory(inputDirectory).then(function (files) {
+                    var index = 0
+                    var fileInfos = []
+                    files.forEach(function (filePath) {
+                        var fileKeyName = filePath.replace(inputDirectory, '').replace(/^\/+/, '')
+                        fs.readFile(filePath, function (err, data) {
+                            if (err) reject(err)
+                            else {
+                                var params = {
+                                    Key: bucketKey ? (bucketKey + '/' + fileKeyName) : fileKeyName,
+                                    Body: data
+                                };
+                                if (bucketName) {
+                                    params.Bucket = bucketName
                                 }
-                            });
-                        })
-                    }
-                })
+                                if (publicACL) {
+                                    params.ACL = 'public-read'
+                                    params.ContentDisposition = 'inline'
+                                    var fileName = path.basename(fileKeyName)
+                                    params.ContentType = 
+                                        fileName.endsWith('.html') ? 'text/html' : 
+                                        fileName.endsWith('.css') ? 'text/css' : 
+                                        fileName.endsWith('.js') ? 'application/javascript' :
+                                        'application/octet-stream'
+                                }
+                                adaptor.upload(params, function (err, data) {
+                                    if (err) {
+                                        consoleWithMessage(`${opName}`, `FileUpload: ${CERROR}(ERROR)${CRESET} ${err}`)
+                                        reject(err)
+                                    } else {
+                                        fileInfos.push(data)
+                                        consoleWithMessage(`${opName}`, `FileUpload: ${params.Key}`)
+                                        if (++index >= files.length) {
+                                            resolve(fileInfos)
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    })
+                }).catch(err => reject(err))
             } else {
                 if (err.code == 'BucketAlreadyExists') {
                     consoleWithMessage(`${opName}`, `CreateBucket: ${CERROR}(ERROR)${CRESET} ${err} *** It has been created by another AWS Account worldwide!`)
@@ -269,7 +279,7 @@ const uploadLocalDirectory = function (options) {
 }
 
 const uploadLocalFile = function (options) {
-    var { adaptor, opName, bucketKey, inputLocalFile } = options
+    var { adaptor, opName, bucketName, bucketKey, inputLocalFile } = options
     opName = opName || `uploadLocalFile`
     var uploadFileName = path.basename(inputLocalFile)
     return new Promise(function (resolve, reject) {
@@ -279,9 +289,12 @@ const uploadLocalFile = function (options) {
                 if (err) throw err;
                 adaptor.createBucket(function (err) {
                     var params = {
-                        Key: bucketKey + '/' + uploadFileName,
+                        Key: bucketKey ? (bucketKey + '/' + uploadFileName) : uploadFileName,
                         Body: data
                     };
+                    if (bucketName) {
+                        params.Bucket = bucketName
+                    }
                     if (!err || (err.code == 'BucketAlreadyOwnedByYou')) {
                         adaptor.upload(params, function (err, data) {
                             if (err) {

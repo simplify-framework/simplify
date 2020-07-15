@@ -709,6 +709,31 @@ const deleteFunctionLayerVersions = function (options) {
     })
 }
 
+const emptyBucketForDeletion = function (options) {
+    var { adaptor, opName, bucketName } = options
+    opName = opName || `emptyBucketForDeletion`
+    return new Promise(function (resolve, reject) {
+        adaptor.listObjects({
+            Bucket: bucketName
+        }, function(err, data) {
+            if (err) reject(err)
+            else {
+                let dataIndex = 0
+                data.Contents.forEach(function(content) {
+                    adaptor.deleteObject({
+                        Bucket: bucketName,
+                        Key: content.Key
+                    }, function(err, _) {
+                        if (++dataIndex >= data.Contents.length) {
+                            resolve(data.Contents)
+                        }
+                    })
+                })
+            }
+        })
+    })
+}
+
 const deleteDeploymentBucket = function (options) {
     var { adaptor, opName, bucketName } = options
     opName = opName || `deleteDeploymentBucket`
@@ -1034,6 +1059,7 @@ module.exports = {
     uploadDirectoryAsZip,
     createOrUpdateStack,
     deleteStackOnComplete,
+    emptyBucketForDeletion,
     deleteDeploymentBucket,
     deleteFunctionLayerVersions,
     createFunctionLayerVersion,

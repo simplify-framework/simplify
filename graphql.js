@@ -4,8 +4,9 @@ if (typeof __non_webpack_require__ === 'undefined') global.__non_webpack_require
 
 class StateExecution {
     
-    constructor({ executionPath, verbosity }) {
+    constructor({ executionPath, executionName, verbosity }) {
         this.executionPath = executionPath || path.join(__dirname, "Functions")
+        this.executionName = executionName
         this.verbosity = verbosity
         this.STATE_FINISH = [ "DONE", "ERROR" ]
     }
@@ -20,10 +21,14 @@ class StateExecution {
 
     runNextExecution({ event, context }, stateObject, states) {
         const _thisFunction = this
-        
+
         return new Promise((resolve, reject) => {
             const _modulePath = `${path.join(_thisFunction.executionPath, stateObject.Run)}`
-            const _stateFunction = __non_webpack_require__(_modulePath).handler
+            const fModule = __non_webpack_require__(`${_thisFunction.executionName}`)
+            let _stateFunction = __non_webpack_require__(_modulePath).handler
+            if (process.env.MONOLITHIC_CODE == "YES" && fModule[stateObject.Run]) {
+                _stateFunction = fModule[stateObject.Run].handler
+            }
             _thisFunction.verbose(`StateExecution:RUN_CONTEXT name = ${stateObject.Run} args =`, JSON.stringify(event.args))
             _stateFunction(event, context, function (err, data) {
                 if (err && !_thisFunction.isFinished(stateObject.Other)) {

@@ -320,11 +320,14 @@ const uploadLocalFile = function (options) {
 const uploadDirectoryAsZip = function (options) {
     var { adaptor, opName, bucketKey, inputDirectory, outputFilePath, hashInfo, fileName } = options
     opName = opName || `uploadDirectoryAsZip`
-    var outputZippedFile = `${fileName || utilities.toDateString()}.zip`
+    var outputZippedFile = `${fileName || utilities.getDateToday()}.zip`
     var outputZippedFilePath = path.join(outputFilePath, outputZippedFile)
     return new Promise(function (resolve, reject) {
         try {
             const zip = new AdmZip();
+            if (!fs.existsSync(outputFilePath)) {
+                fs.mkdirSync(outputFilePath)
+            }
             zip.addLocalFolder(inputDirectory)
             zip.writeZip(outputZippedFilePath)
             consoleWithMessage(`${opName}`, `ZipFile: ${outputZippedFilePath.truncate(50)}`)

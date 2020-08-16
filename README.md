@@ -19,18 +19,18 @@ To start, choose one of two serverless models: OpenAPI or GraphQL
 
 ```Json
 {
-    "Region": "us-east-1",
+    "Profile": "${DEPLOYMENT_PROFILE}",
+    "Region": "${DEPLOYMENT_REGION}",
     "Bucket": {
-        "Name": "lambdaFunctionName-deployment",
+        "Name": "${DEPLOYMENT_BUCKET}",
         "Key": "builds/${DATE_TODAY}"
     },
-    "OutputFile": "function-meta.json",
     "Function": {
-        "FunctionName": "lambdaFunctionName",
+        "FunctionName": "${FUNCTION_NAME}",
         "Handler": "index.handler",
         "MemorySize": 256,
         "Publish": true,
-        "Role": "arn:aws:iam::1234567890:role/lambdaFunctionRole",
+        "Role": "${FUNCTION_ROLE}",
         "Runtime": "nodejs12.x",
         "Tags": {
             "Group": "Simplify"
@@ -41,8 +41,7 @@ To start, choose one of two serverless models: OpenAPI or GraphQL
         },
         "Environment": {
             "Variables": {
-                "ENV": "development",
-                "FOO": "bar"
+                "ENV": "development"
             }
         }
     }
@@ -51,31 +50,49 @@ To start, choose one of two serverless models: OpenAPI or GraphQL
 
 ### Deoloy AWS Lambda Function example: main.js
 ```Javascript
+'use strict';
 const path = require('path')
 const fs = require('fs')
 const simplify = require('simplify-sdk')
 const provider = require('simplify-sdk/provider')
 
-var config = simplify.getInputConfig(path.join(__dirname, 'config.json'))
-const functionConfig = config.Function
-const bucketName = config.Bucket.Name
-const bucketKey = config.Bucket.Key
+const YOUR_DEPLOYMENT_REGION = "eu-west-1"
+const YOUR_DEPLOYMENT_BUCKET = "your-deployment-bucket-2873821"
+const YOUR_FUNCTION_NAME = "YourLambdaFunction-1WDRZ5J5OUN5H"
+const YOUR_FUNCTION_ROLE = "arn:aws:iam::01234567890:role/YourLambdaExecutionRole"
+var YOUR_FUNCTION_SHA256 = "LOAD_FROM_OUTPUT_FILE__data.YOUR_FUNCTION_SHA256"
 
-provider.setConfig(config) {
+var config = simplify.getInputConfig(path.join(__dirname, 'config.json'), {
+    DEPLOYMENT_BUCKET: YOUR_DEPLOYMENT_BUCKET,
+    DEPLOYMENT_REGION: YOUR_DEPLOYMENT_REGION,
+    FUNCTION_NAME: YOUR_FUNCTION_NAME,
+    FUNCTION_ROLE: YOUR_FUNCTION_ROLE
+})
+
+provider.setConfig(config).then(sessionCreds => {
     simplify.uploadDirectoryAsZip({
         adaptor: provider.getStorage(), ...{
-            bucketKey, 'input/Directory', 'output/File/Path'
+            bucketKey: config.Bucket.Key,
+            inputDirectory: 'src',
+            outputFilePath: 'dist',
+            hashInfo: { FileSha256: YOUR_FUNCTION_SHA256 }
         }
-    }).then(function (uploadInfor) {
+    }).then(uploadInfor => {
         simplify.createOrUpdateFunction({
             adaptor: provider.getFunction(),
-            ...{ functionConfig, bucketName, bucketKey: uploadInfor.Key }
+            ...{
+                functionConfig: config.Function,
+                bucketName: config.Bucket.Name,
+                bucketKey: uploadInfor.Key
+            }
         }).then(function (data) {
-            // Handle data response
+            // Handle data response: save output to file...
+            data.YOUR_FUNCTION_SHA256 = uploadInfor.FileSha256
+            console.log(`Update-Function: ${data}`)
         }, function(err) {
             console.error(`Update-ERROR: ${err}`);
         })
-    }, function(err) {
+    }).catch(err => {
         console.error(`UploadZip-ERROR: ${err}`);
     })
 })

@@ -326,7 +326,7 @@ const uploadDirectoryAsZip = function (options) {
         try {
             const zip = new AdmZip();
             if (!fs.existsSync(outputFilePath)) {
-                fs.mkdirSync(outputFilePath)
+                fs.mkdirSync(outputFilePath, { recursive: true })
             }
             zip.addLocalFolder(inputDirectory)
             zip.writeZip(outputZippedFilePath)

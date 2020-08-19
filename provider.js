@@ -18,13 +18,13 @@ module.exports = {
     setConfig: function (config) {
         return new Promise(function (resolve, reject) {
             AWS.CredentialProviderChain.defaultProviders = [
-                function () { return new AWS.EnvironmentCredentials('AWS'); },
-                function () { return new AWS.EnvironmentCredentials('AMAZON'); },
                 function () { return new AWS.SharedIniFileCredentials(config.Profile ? { profile: config.Profile } : {}); },
+                function () { return new AWS.EnvironmentCredentials('AWS'); },
                 function () { return new AWS.ECSCredentials(); },
                 function () { return new AWS.ProcessCredentials(); },
-                function () { return new AWS.TokenFileWebIdentityCredentials(); },
-                function () { return new AWS.EC2MetadataCredentials() }
+                function () { return new AWS.EC2MetadataCredentials() },
+                function () { return new AWS.EnvironmentCredentials('AMAZON'); },
+                function () { return new AWS.TokenFileWebIdentityCredentials(); }
             ]
             new AWS.CredentialProviderChain().resolve(function (err, credentials) {
                 if (err) {

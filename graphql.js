@@ -12,7 +12,11 @@ class StateExecution {
     }
 
     verbose(...args) {
-        this.verbosity && console.log(...args)
+        if (this.verbosity) {
+            console.log(...args)
+        } else {
+            console.log(`${args[0]}${args.length>1 ? " (***hidden***)" : "."}`)
+        }
     }
 
     isFinished(state) {

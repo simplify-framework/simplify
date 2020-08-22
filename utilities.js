@@ -130,6 +130,14 @@ const getSha256FileInBase64 = function (filePath) {
     return crypto.createHash('sha256').update(data).digest('base64')
 }
 
+const getSha256InHex = function (data) {
+    return crypto.createHash('sha256').update(data).digest('hex')
+}
+
+const getSha256InBase64 = function (data) {
+    return crypto.createHash('sha256').update(data).digest('base64')
+}
+
 const downloadFileFromUrl = function (url, dest) {
     return new Promise((resolve, reject) => {
         const file = fs.createWriteStream(dest, { flags: "wx" })
@@ -173,7 +181,9 @@ async function getFilesInDirectory(dir) {
 
 module.exports = {
     getOutputKeyValue,
+    getSha256InHex,
     getSha256FileInHex,
+    getSha256InBase64,
     getSha256FileInBase64,
     downloadFileFromUrl,
     printTableWithJSON: printTable,

@@ -31,8 +31,10 @@ const CDONE = '\x1b[37m'
  * [CloudWatchLog] adaptor.disassociateKmsKey(params, callback)
  * [CloudWatchLog] adaptor.putRetentionPolicy(params, callback)
  * [CloudWatch] adaptor.getMetricStatistics(params, callback)
- * [IAM] updateFunctionRolePolicy(params, callback)
- * [IAM] deleteFunctionRolePolicy(params, callback)
+ * [IAM] adaptor.updateRolePolicy(params, callback)
+ * [IAM] adaptor.deleteRolePolicy(params, callback)
+ * [IAM] adaptor.createRole(params, callback)
+ * [IAM] adaptor.deleteRole(params, callback)
  */
 
 const showBoxBanner = function () {
@@ -54,7 +56,7 @@ const getFunctionSha256 = function (outputFilePath, name) {
     }
 }
 
-const parseTemplate = function (...args) {
+const getContentArgs = function (...args) {
     var template = args.shift()
     function parseVariables(v) {
         Object.keys(process.env).map(function (e) {
@@ -87,36 +89,105 @@ const getInputConfig = function (...args) {
     } else {
         config = firstParam
     }
-    return parseTemplate(config, ...args)
+    return getContentArgs(config, ...args)
 }
 
-const updateFunctionRolePolicy = function(options) {
+const getContentFile = getInputConfig;
+
+const updateFunctionRolePolicy = function (options) {
     var { adaptor, opName, policyName, policyDocument, functionConfig } = options
     opName = opName || `updateFunctionRolePolicy`
-    const roleFunctionName = functionConfig.Role.split('/')[1]
+    const roleName = functionConfig.Role.split('/')[1]
     var params = {
         PolicyDocument: JSON.stringify(policyDocument),
-        PolicyName: policyName || `${roleFunctionName}AttachedPolicy`,
-        RoleName: roleFunctionName
+        PolicyName: policyName || `${roleName}AttachedPolicy`,
+        RoleName: roleName
     };
-    return new Promise(function (resolve, reject) {  
+    return new Promise(function (resolve, reject) {
         adaptor.putRolePolicy(params, function (err, data) {
             err ? reject(err) : resolve(data)
         });
     })
 }
 
-const deleteFunctionRolePolicy = function(options) {
+const createOrUpdateFunctionRole = function (options) {
+    var { adaptor, opName, roleName, policyDocument, assumeRoleDocument } = options
+    opName = opName || `createFunctionRole`
+    var params = {
+        AssumeRolePolicyDocument: assumeRoleDocument || `{
+            "Version": "2012-10-17",
+            "Statement": [
+               {
+                  "Effect": "Allow",
+                  "Principal": {
+                     "Service": [
+                        "lambda.amazonaws.com"
+                     ]
+                  },
+                  "Action": [
+                     "sts:AssumeRole"
+                  ]
+               }
+            ]
+        }`,
+        Path: "/",
+        RoleName: roleName
+    };
+    return new Promise(function (resolve, reject) {
+        adaptor.getRole({
+            RoleName: roleName
+        }, function (err, data) {
+            function createRolePolicy(data) {
+                policyDocument ? adaptor.putRolePolicy({
+                    PolicyDocument: JSON.stringify(policyDocument),
+                    PolicyName: `${roleName}Policy`,
+                    RoleName: roleName
+                }, function (err) {
+                    err ? reject(err) : resolve(data)
+                }) : resolve(data)
+            }
+            if (err) {
+                consoleWithMessage(`${opName}`, `Create: ${roleName.truncate(50)}`)
+                adaptor.createRole(params, function (err, data) {
+                    err ? reject(err) : createRolePolicy(data)
+                })
+            } else {
+                consoleWithMessage(`${opName}`, `Update: ${roleName.truncate(50)}`)
+                createRolePolicy(data)
+            }
+        })
+    })
+}
+
+const deleteFunctionRolePolicy = function (options) {
     var { adaptor, opName, policyName, functionConfig } = options
     opName = opName || `deleteFunctionRolePolicy`
-    const roleFunctionName = functionConfig.Role.split('/')[1]
+    const roleName = functionConfig.Role.split('/')[1]
     var params = {
-        PolicyName: policyName || `${roleFunctionName}AttachedPolicy`,
-        RoleName: roleFunctionName
+        PolicyName: policyName || `${roleName}AttachedPolicy`,
+        RoleName: roleName
     };
-    return new Promise(function (resolve) {  
+    return new Promise(function (resolve) {
         adaptor.deleteRolePolicy(params, function () {
             resolve(params)
+        });
+    })
+}
+
+const deleteFunctionRole = function (options) {
+    var { adaptor, opName, roleName } = options
+    opName = opName || `deleteFunctionRole`
+    var params = {
+        RoleName: roleName
+    };
+    return new Promise(function (resolve, reject) {
+        adaptor.deleteRolePolicy({
+            PolicyName: `${roleName}Policy`,
+            RoleName: roleName
+        }, function () {
+            adaptor.deleteRole(params, function () {
+                resolve({ roleName })
+            });
         });
     })
 }
@@ -178,7 +249,7 @@ const deleteExistingStack = function (options) {
     var params = {
         StackName: stackName
     };
-    return new Promise(function (resolve, reject) {  
+    return new Promise(function (resolve, reject) {
         adaptor.deleteStack(params, function (err, data) {
             err ? reject(err) : resolve(data)
         });
@@ -244,11 +315,11 @@ const uploadLocalDirectory = function (options) {
                                     params.ACL = 'public-read'
                                     params.ContentDisposition = 'inline'
                                     var fileName = path.basename(fileKeyName)
-                                    params.ContentType = 
-                                        fileName.endsWith('.html') ? 'text/html' : 
-                                        fileName.endsWith('.css') ? 'text/css' : 
-                                        fileName.endsWith('.js') ? 'application/javascript' :
-                                        'application/octet-stream'
+                                    params.ContentType =
+                                        fileName.endsWith('.html') ? 'text/html' :
+                                            fileName.endsWith('.css') ? 'text/css' :
+                                                fileName.endsWith('.js') ? 'application/javascript' :
+                                                    'application/octet-stream'
                                 }
                                 adaptor.upload(params, function (err, data) {
                                     if (err) {
@@ -330,16 +401,16 @@ const uploadDirectoryAsZip = function (options) {
             }
             zip.addLocalFolder(inputDirectory)
             zip.writeZip(outputZippedFilePath)
-            consoleWithMessage(`${opName}`, `ZipFile: ${outputZippedFilePath.truncate(50)}`)
+            consoleWithMessage(`${opName}`, `ZipFile: ${inputDirectory} > ${outputZippedFilePath.truncate(50)}`)
             const zipBuffer = Buffer.concat(zip.getEntries().map(e => {
                 return e.getData()
             }))
             const sha256Hex = crypto.createHash('sha256').update(zipBuffer).digest('hex')
             if (sha256Hex === hashInfo.FileSha256) {
-                resolve(hashInfo)
+                resolve({ ...hashInfo, isHashIdentical: true })
             } else {
                 uploadLocalFile({ adaptor, opName, bucketKey, inputLocalFile: outputZippedFilePath }).then(function (data) {
-                    resolve({ ...data, FileSha256: sha256Hex })
+                    resolve({ ...data, FileSha256: sha256Hex, isHashIdentical: false })
                 }).catch(function (err) { reject(err) })
             }
         } catch (err) {
@@ -361,48 +432,51 @@ const createOrUpdateFunction = function (options) {
             ...functionConfig
         };
         consoleWithMessage(`${opName}`, `CreateFunction: ${functionConfig.FunctionName.truncate(50)}`);
-        adaptor.createFunction(params, function (err) {
+        adaptor.createFunction(params, function (err, data) {
             if (err) {
-                consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${functionConfig.FunctionName.truncate(50)}`);
-                const unusedProps = ["Code", "Publish", "Tags"]
-                unusedProps.forEach(function (k) { delete params[k] })
-                adaptor.updateFunctionConfiguration(params, function (err) {
-                    if (err) {
-                        reject(err)
-                    } else {
-                        consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${CDONE}(OK)${CRESET}`);
-                        adaptor.updateFunctionCode({
-                            FunctionName: functionConfig.FunctionName,
-                            S3Bucket: bucketName,
-                            S3Key: bucketKey
-                        }, function (err, data) {
-                            if (err) {
-                                consoleWithMessage(`${opName}`, `UpdateFunctionCode: ${CERROR}(ERROR)${CRESET} ${err}`);
-                                reject(err)
-                            } else {
-                                consoleWithMessage(`${opName}`, `UpdateFunctionCode: ${CDONE}(OK)${CRESET}`);
+                if (err.code === 'ResourceConflictException') {
+                    consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${functionConfig.FunctionName.truncate(50)}`, err);
+                    const unusedProps = ["Code", "Publish", "Tags"]
+                    unusedProps.forEach(function (k) { delete params[k] })
+                    adaptor.updateFunctionConfiguration(params, function (err) {
+                        if (err) {
+                            reject(err)
+                        } else {
+                            consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${CDONE}(OK)${CRESET}`);
+                            adaptor.updateFunctionCode({
+                                FunctionName: functionConfig.FunctionName,
+                                S3Bucket: bucketName,
+                                S3Key: bucketKey
+                            }, function (err, data) {
+                                if (err) {
+                                    consoleWithMessage(`${opName}`, `UpdateFunctionCode: ${CERROR}(ERROR)${CRESET} ${err}`);
+                                    reject(err)
+                                } else {
+                                    consoleWithMessage(`${opName}`, `UpdateFunctionCode: ${CDONE}(OK)${CRESET}`);
+                                    resolve(data)
+                                }
+                            })
+                        }
+                    });
+                } else {
+                    var index = 0
+                    function retryCreateFunction() {
+                        consoleWithMessage(`${opName}`, `CreateFunction: ${functionConfig.FunctionName.truncate(50)}`);
+                        adaptor.createFunction(params, function (err, data) {
+                            if (++index > 10 || !err) {
                                 resolve(data)
+                            } else {
+                                setTimeout(() => retryCreateFunction(), 1000)
                             }
                         })
                     }
-                });
+                    retryCreateFunction()
+                }
             } else {
                 consoleWithMessage(`${opName}`, `CreateFunction: ${CDONE}(OK)${CRESET}`);
-                adaptor.updateFunctionCode({
-                    FunctionName: functionName,
-                    S3Bucket: bucketName,
-                    S3Key: bucketKey
-                }, function (err, data) {
-                    if (err) {
-                        consoleWithMessage(`${opName}`, `UpdateFunctionCode: ${CERROR}(ERROR)${CRESET} ${err}`);
-                        reject(err)
-                    } else {
-                        consoleWithMessage(`${opName}`, `UpdateFunctionCode: ${CDONE}(OK)${CRESET}`);
-                        resolve(data)
-                    }
-                })
+                resolve(data)
             }
-        });
+        })
     })
 }
 
@@ -486,7 +560,7 @@ const createFunctionLayerVersion = function (options) {
                             consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${functionName} ${CDONE}(OK)${CRESET}`);
                         }
                         if (++indexFunctionName >= listFunctionNames.length) {
-                            err ? reject(err): resolve(data)
+                            err ? reject(err) : resolve(data)
                         }
                     })
                 })
@@ -712,21 +786,34 @@ const deleteFunctionLayerVersions = function (options) {
     })
 }
 
+const deleteFunction = function (options) {
+    var { adaptor, opName, functionConfig, withLayerVersions } = options
+    opName = opName || `deleteFunction`
+    return new Promise(function (resolve, reject) {
+        consoleWithMessage(`${opName}`, `DeleteFunction: ${functionConfig.FunctionName.truncate(50)}`);
+        adaptor.deleteFunction({
+            FunctionName: functionConfig.FunctionName
+        }, function (err) {
+            err ? reject(err) : withLayerVersions ? deleteFunctionLayerVersions(options).then(_ => resolve(functionConfig)).catch(err => reject(err)) : resolve(functionConfig)
+        })
+    })
+}
+
 const emptyBucketForDeletion = function (options) {
     var { adaptor, opName, bucketName } = options
     opName = opName || `emptyBucketForDeletion`
     return new Promise(function (resolve, reject) {
         adaptor.listObjects({
             Bucket: bucketName
-        }, function(err, data) {
+        }, function (err, data) {
             if (err) reject(err)
             else {
                 let dataIndex = 0
-                data.Contents.forEach(function(content) {
+                data.Contents.forEach(function (content) {
                     adaptor.deleteObject({
                         Bucket: bucketName,
                         Key: content.Key
-                    }, function(err, _) {
+                    }, function (err, _) {
                         if (++dataIndex >= data.Contents.length) {
                             resolve(data.Contents)
                         }
@@ -1054,7 +1141,8 @@ const consoleWithErrors = function (opName, error, silent) {
 
 module.exports = {
     showBoxBanner,
-    parseTemplate,
+    getContentArgs,
+    getContentFile,
     getInputConfig,
     uploadLocalFile,
     getFunctionSha256,
@@ -1072,8 +1160,11 @@ module.exports = {
     getFunctionMetricData,
     updateFunctionRolePolicy,
     deleteFunctionRolePolicy,
+    createOrUpdateFunctionRole,
+    deleteFunctionRole,
     checkStackStatusOnComplete,
     createOrUpdateFunction,
+    deleteFunction,
     createOrUpdateStackOnComplete,
     enableOrDisableLogEncryption,
     updateAPIGatewayDeployment,

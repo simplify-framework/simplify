@@ -1,6 +1,6 @@
 {
   "name": "simplify-sdk",
-  "version": "0.1.37",
+  "version": "0.1.38",
   "description": "Simplify Framework SDK library for NodeJS",
   "main": "simplify.js",
   "dependencies": {

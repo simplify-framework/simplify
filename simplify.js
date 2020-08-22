@@ -421,8 +421,9 @@ const uploadDirectoryAsZip = function (options) {
 }
 
 const createOrUpdateFunction = function (options) {
-    var { adaptor, opName, bucketName, bucketKey, functionConfig } = options
+    var { adaptor, opName, bucketName, bucketKey, functionConfig, creationTimeout } = options
     opName = opName || `createOrUpdateFunction`
+    creationTimeout = creationTimeout || 10
     return new Promise(function (resolve, reject) {
         var params = {
             Code: {
@@ -463,8 +464,8 @@ const createOrUpdateFunction = function (options) {
                     function retryCreateFunction() {
                         consoleWithMessage(`${opName}`, `CreateFunction: ${functionConfig.FunctionName.truncate(50)}`);
                         adaptor.createFunction(params, function (err, data) {
-                            if (++index > 10 || !err) {
-                                resolve(data)
+                            if (++index > creationTimeout || !err) {
+                                index > creationTimeout ? reject(`Create Function Timeout - exceeded ${creationTimeout} seconds!`) : resolve({ ...data })
                             } else {
                                 setTimeout(() => retryCreateFunction(), 1000)
                             }
@@ -665,7 +666,7 @@ const updateAPIGatewayDeployment = function (options) {
 
 const createOrUpdateStackOnComplete = function (options) {
     return new Promise(function (resolve, reject) {
-        var { opName } = options
+        var { adaptor, opName, stackName } = options
         const internvalTime = process.env.SIMPLIFY_STACK_INTERVAL || 5000
         var poolingTimeout = process.env.SIMPLIFY_STACK_TIMEOUT || 360
         const timeoutInMinutes = poolingTimeout * internvalTime
@@ -697,8 +698,16 @@ const createOrUpdateStackOnComplete = function (options) {
             }
             setTimeout(whileStatusIsPending, internvalTime);
         }, function (err) {
-            consoleWithMessage(`${opName}`, `CreateStackOrUpdate: ${CERROR}(ERROR)${CRESET} ${err}`);
-            reject(err)
+            if( err.code == "ValidationError" && err.message.startsWith("No updates are to be performed.")) {
+                adaptor.describeStacks({
+                    StackName: stackName
+                }, function (err, data) {
+                    err ? reject(err) : resolve(data.Stacks[0])
+                })
+            } else {
+                consoleWithMessage(`${opName}`, `CreateStackOrUpdate: ${CERROR}(ERROR)${CRESET} ${err}`);
+                reject(err)
+            }
         })
     })
 }

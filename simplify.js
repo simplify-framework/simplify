@@ -300,7 +300,8 @@ const uploadLocalDirectory = function (options) {
                     var index = 0
                     var fileInfos = []
                     files.forEach(function (filePath) {
-                        var fileKeyName = filePath.replace(inputDirectory, '').replace(/^\/+/, '')
+                        var fileKeyName = filePath.replace(inputDirectory, '').replace(/^\/+/, '').replace(/^\\+/, '')
+                        fileKeyName = fileKeyName.replace(/\\+/g, '/')
                         fs.readFile(filePath, function (err, data) {
                             if (err) reject(err)
                             else {

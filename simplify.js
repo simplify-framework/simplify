@@ -322,7 +322,10 @@ const uploadLocalDirectory = function (options) {
                                                 fileName.endsWith('.js') ? 'application/javascript' :
                                                     'application/octet-stream'
                                 }
-                                adaptor.upload(params, function (err, data) {
+                                consoleWithMessage(`\t Uploading`, `InProgress: \t${0} %`);
+                                adaptor.upload(params).on('httpUploadProgress', event => {
+                                    consoleWithMessage(`\t Uploading`, `InProgress: \t${parseInt(100* event.loaded/event.total)} %`);
+                                }).send((err, data) => {
                                     if (err) {
                                         consoleWithMessage(`${opName}`, `FileUpload: ${CERROR}(ERROR)${CRESET} ${err}`)
                                         reject(err)
@@ -333,9 +336,9 @@ const uploadLocalDirectory = function (options) {
                                             resolve(fileInfos)
                                         }
                                     }
-                                });
+                                })
                             }
-                        });
+                        })
                     })
                 }).catch(err => reject(err))
             } else {
@@ -368,7 +371,10 @@ const uploadLocalFile = function (options) {
                         params.Bucket = bucketName
                     }
                     if (!err || (err.code == 'BucketAlreadyOwnedByYou')) {
-                        adaptor.upload(params, function (err, data) {
+                        consoleWithMessage(`\t Uploading`, `InProgress: \t${0} %`);
+                        adaptor.upload(params).on('httpUploadProgress', event => {
+                            consoleWithMessage(`\t Uploading`, `InProgress: \t${parseInt(100* event.loaded/event.total)} %`);
+                        }).send((err, data) => {
                             if (err) {
                                 consoleWithMessage(`${opName}`, `FileUpload: ${CERROR}(ERROR)${CRESET} ${err}`)
                                 reject(err)
@@ -376,13 +382,13 @@ const uploadLocalFile = function (options) {
                                 consoleWithMessage(`${opName}`, `FileUpload: ${data.Location.truncate(50)}`)
                                 resolve({ ...data })
                             }
-                        });
+                        })
                     } else {
                         consoleWithMessage(`${opName}`, `CreateBucket: ${CERROR}(ERROR)${CRESET} ${err}`)
                         reject(err)
                     }
-                });
-            });
+                })
+            })
         } catch (err) {
             reject(err)
         }

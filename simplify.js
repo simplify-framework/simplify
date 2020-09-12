@@ -710,7 +710,7 @@ const createOrUpdateStackOnComplete = function (options) {
                         reject(data.Error)
                     }
                 }, function (stackObject) {
-                    consoleWithMessage(`${opName}`, `CreateStackOrUpdate: ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
+                    consoleWithMessage(`${opName}`, `CreateStackOrUpdate: (${options.stackName}) ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
                     setTimeout(whileStatusIsPending, internvalTime);
                     if (--poolingTimeout <= 0) {
                         reject({ message: `Operation Timeout: Running over ${timeoutInMinutes} mins` })
@@ -762,7 +762,7 @@ const deleteStackOnComplete = function (options) {
                         }
                     }
                 }, function (stackObject) {
-                    consoleWithMessage(`${opName}`, `DeleteExistingStack: ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
+                    consoleWithMessage(`${opName}`, `DeleteExistingStack: (${options.stackName}) ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
                     setTimeout(whileStatusIsPending, internvalTime);
                     if (--poolingTimeout <= 0) {
                         reject({ message: `Operation Timeout: Running over ${timeoutInMinutes} mins` })

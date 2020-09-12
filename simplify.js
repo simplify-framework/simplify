@@ -733,7 +733,7 @@ const createOrUpdateStackOnComplete = function (options) {
             const whileStatusIsPending = function () {
                 checkStackStatusOnComplete(options, data).then(function (data) {
                     if (typeof data.Error === "undefined") {
-                        consoleWithMessage(`${opName}`, `CreateStackOrUpdate: ${CDONE}(OK)${CRESET} with ${data.StackStatus}`);
+                        consoleWithMessage(`${opName}`, `CreateStackOrUpdate: ${CDONE}(${data.StackName})${CRESET} ${data.StackStatus}`);
                         if (data.StackStatus == "DELETE_COMPLETE" || data.StackStatus == "DELETE_FAILED" ||
                             data.StackStatus == "ROLLBACK_COMPLETE" || data.StackStatus == "ROLLBACK_FAILED" ||
                             data.StackStatus == "CLEANUP_COMPLETE") {
@@ -762,7 +762,7 @@ const createOrUpdateStackOnComplete = function (options) {
                     err ? reject(err) : resolve(data.Stacks[0])
                 })
             } else {
-                consoleWithMessage(`${opName}`, `CreateStackOrUpdate: ${CERROR}(ERROR)${CRESET} ${err}`);
+                consoleWithMessage(`${opName}`, `CreateStackOrUpdate: (${options.stackName}) ${CERROR}(ERROR)${CRESET} ${err}`);
                 reject(err)
             }
         })
@@ -793,7 +793,7 @@ const deleteStackOnComplete = function (options) {
                         if (data.Error.code === "ValidationError") {
                             resolve({ RequestId: data.Error.requestId })
                         } else {
-                            consoleWithMessage(`${opName}`, `DeleteExistingStack: ${CERROR}(ERROR)${CRESET} ${data.Error}`);
+                            consoleWithMessage(`${opName}`, `DeleteExistingStack: (${options.stackName}) ${CERROR}(ERROR)${CRESET} ${data.Error}`);
                             reject(data.Error)
                         }
                     }
@@ -807,7 +807,7 @@ const deleteStackOnComplete = function (options) {
             }
             setTimeout(whileStatusIsPending, internvalTime);
         }, function (err) {
-            consoleWithMessage(`${opName}`, `DeleteExistingStack: ${CERROR}(ERROR)${CRESET} ${err}`);
+            consoleWithMessage(`${opName}`, `DeleteExistingStack: (${options.stackName}) ${CERROR}(ERROR)${CRESET} ${err}`);
             reject(err)
         })
     })

@@ -519,6 +519,20 @@ const getFunctionConfiguration = function (options) {
     })
 }
 
+const publishFunctionVersion = function (options) {
+    var { adaptor, opName, functionConfig, functionMeta } = options
+    opName = opName || `publishFunctionVersion`
+    return new Promise(function (resolve, reject) {
+        adaptor.publishVersion({
+            FunctionName: functionConfig.FunctionName,
+            CodeSha256: functionMeta.data.CodeSha256,
+            RevisionId: functionMeta.data.RevisionId
+        }, function (err, functionVersion) {
+            err ? reject(err) : resolve(functionVersion)
+        })
+    })
+}
+
 const createFunctionLayerVersion = function (options) {
     var { adaptor, opName, bucketName, bucketKey, functionConfig, layerConfig } = options
     opName = opName || `createFunctionLayerVersion`
@@ -1174,6 +1188,7 @@ module.exports = {
     getFunctionConfiguration,
     getFunctionMetricStatistics,
     getFunctionMetricData,
+    publishFunctionVersion,
     updateFunctionRolePolicy,
     deleteFunctionRolePolicy,
     createOrUpdateFunctionRole,

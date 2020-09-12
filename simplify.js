@@ -264,7 +264,12 @@ const checkStackStatusOnComplete = function (options, stackData) {
             StackName: stackData.StackId || stackData.StackName
         };
         adaptor.describeStacks(params, function (err, data) {
-            if (err) resolve({ Error: err }); // resolve to FINISH in case there was an error
+            if (err) resolve({
+                Error: err,
+                StackStatus: stackData.StackStatus,
+                StackName: stackData.StackName,
+                StackId: stackData.StackId
+            }); // resolve to FINISH in case there was an error
             else {
                 var currentStack = data.Stacks.length > 0 ? data.Stacks[0] : stackData
                 if (data.Stacks.length && (
@@ -276,12 +281,43 @@ const checkStackStatusOnComplete = function (options, stackData) {
                     currentStack.StackStatus == "DELETE_COMPLETE" ||
                     currentStack.StackStatus == "DELETE_FAILED"
                 )) {
-                    resolve(currentStack) // resolve to FINISH in case there was a matched STATUS found
+                    adaptor.describeStackEvents(params, function (err, data) {
+                        if (err) resolve(currentStack)
+                        else {
+                            const errorMessages = data.StackEvents.map(stackEvent => {
+                                if (stackEvent.ResourceStatusReason && (
+                                    stackEvent.ResourceStatus === "DELETE_FAILED" ||
+                                    stackEvent.ResourceStatus === "ROLLBACK_FAILED" ||
+                                    stackEvent.ResourceStatus === "CREATE_FAILED" ||
+                                    stackEvent.ResourceStatus === "UPDATE_FAILED" ||
+                                    stackEvent.ResourceStatus === "IMPORT_FAILED"
+                                )) {
+                                    return `${CRESET}(${stackEvent.LogicalResourceId}) - ${CERROR}${stackEvent.ResourceStatus}${CRESET} - ${CNOTIF}${stackEvent.ResourceStatusReason}${CRESET}`
+                                }
+                            }).filter(msgNotNull => msgNotNull)
+                            if (currentStack.StackStatus == "UPDATE_COMPLETE" ||
+                                currentStack.StackStatus == "UPDATE_ROLLBACK_COMPLETE" ||
+                                currentStack.StackStatus == "CREATE_COMPLETE" ||
+                                currentStack.StackStatus == "DELETE_COMPLETE") {
+                                resolve(currentStack)
+                            } else {
+                                resolve({
+                                    Error: {
+                                        message: errorMessages.join('\n - ')
+                                    },
+                                    StackStatus: currentStack.StackStatus,
+                                    StackName: currentStack.StackName,
+                                    StackId: currentStack.StackId
+                                })
+                            }
+                        }
+                    })
                 } else {
                     // reject to CONTINUE, in case --deletion the stack will be disapeared with undefined
                     if (!currentStack.StackStatus && currentStack.ResponseMetadata) {
                         resolve({ StackStatus: 'CLEANUP_COMPLETE' })
                     } else {
+
                         reject(currentStack)
                     }
                 }
@@ -324,7 +360,7 @@ const uploadLocalDirectory = function (options) {
                                 }
                                 consoleWithMessage(`\t Uploading`, `InProgress: \t${0} %`);
                                 adaptor.upload(params).on('httpUploadProgress', event => {
-                                    consoleWithMessage(`\t Uploading`, `InProgress: \t${parseInt(100* event.loaded/event.total)} %`);
+                                    consoleWithMessage(`\t Uploading`, `InProgress: \t${parseInt(100 * event.loaded / event.total)} %`);
                                 }).send((err, data) => {
                                     if (err) {
                                         consoleWithMessage(`${opName}`, `FileUpload: ${CERROR}(ERROR)${CRESET} ${err}`)
@@ -373,7 +409,7 @@ const uploadLocalFile = function (options) {
                     if (!err || (err.code == 'BucketAlreadyOwnedByYou')) {
                         consoleWithMessage(`\t Uploading`, `InProgress: \t${0} %`);
                         adaptor.upload(params).on('httpUploadProgress', event => {
-                            consoleWithMessage(`\t Uploading`, `InProgress: \t${parseInt(100* event.loaded/event.total)} %`);
+                            consoleWithMessage(`\t Uploading`, `InProgress: \t${parseInt(100 * event.loaded / event.total)} %`);
                         }).send((err, data) => {
                             if (err) {
                                 consoleWithMessage(`${opName}`, `FileUpload: ${CERROR}(ERROR)${CRESET} ${err}`)
@@ -706,7 +742,7 @@ const createOrUpdateStackOnComplete = function (options) {
                             resolve(data)
                         }
                     } else {
-                        consoleWithMessage(`${opName}`, `CreateStackOrUpdate: ${CERROR}(ERROR)${CRESET} ${data.Error}`);
+                        consoleWithMessage(`${opName}`, `CreateStackOrUpdate: (${(data.StackName || data.StackId).truncate(50)}) ${data.StackStatus}`);
                         reject(data.Error)
                     }
                 }, function (stackObject) {
@@ -719,7 +755,7 @@ const createOrUpdateStackOnComplete = function (options) {
             }
             setTimeout(whileStatusIsPending, internvalTime);
         }, function (err) {
-            if( err.code == "ValidationError" && err.message.startsWith("No updates are to be performed.")) {
+            if (err.code == "ValidationError" && err.message.startsWith("No updates are to be performed.")) {
                 adaptor.describeStacks({
                     StackName: stackName
                 }, function (err, data) {
@@ -854,9 +890,9 @@ const emptyBucketForDeletion = function (options) {
     })
 }
 
-const deleteDeploymentBucket = function (options) {
+const deleteStorageBucket = function (options) {
     var { adaptor, opName, bucketName } = options
-    opName = opName || `deleteDeploymentBucket`
+    opName = opName || `deleteStorageBucket`
     return new Promise(function (resolve, reject) {
         adaptor.listObjects({ Bucket: bucketName }, function (err, data) {
             if (err) {
@@ -1169,6 +1205,8 @@ const consoleWithErrors = function (opName, error, silent) {
     !silent ? process.stdout.write("\r") && console.log(`${opName}-${CNOTIF}${error.message.truncate(150)}${CRESET}`) : silentWithSpinner()
 }
 
+const deleteDeploymentBucket = deleteStorageBucket
+
 module.exports = {
     showBoxBanner,
     getContentArgs,
@@ -1182,6 +1220,7 @@ module.exports = {
     deleteStackOnComplete,
     emptyBucketForDeletion,
     deleteDeploymentBucket,
+    deleteStorageBucket,
     deleteFunctionLayerVersions,
     createFunctionLayerVersion,
     updateFunctionConfiguration,

@@ -147,12 +147,12 @@ const createOrUpdateFunctionRole = function (options) {
                 }) : resolve(data)
             }
             if (err) {
-                consoleWithMessage(`${opName}`, `Create: ${roleName.truncate(50)}`)
+                consoleWithMessage(`${opName}-Create`, `${roleName.truncate(50)}`)
                 adaptor.createRole(params, function (err, data) {
                     err ? reject(err) : createRolePolicy(data)
                 })
             } else {
-                consoleWithMessage(`${opName}`, `Update: ${roleName.truncate(50)}`)
+                consoleWithMessage(`${opName}-Update`, `${roleName.truncate(50)}`)
                 createRolePolicy(data)
             }
         })
@@ -358,16 +358,16 @@ const uploadLocalDirectory = function (options) {
                                                 fileName.endsWith('.js') ? 'application/javascript' :
                                                     'application/octet-stream'
                                 }
-                                consoleWithMessage(`\t Uploading`, `InProgress: \t${0} %`);
+                                consoleWithMessage(`\t Uploading-InProgress`, `\t${0} %`);
                                 adaptor.upload(params).on('httpUploadProgress', event => {
-                                    consoleWithMessage(`\t Uploading`, `InProgress: \t${parseInt(100 * event.loaded / event.total)} %`);
+                                    consoleWithMessage(`\t Uploading-InProgress`, `\t${parseInt(100 * event.loaded / event.total)} %`);
                                 }).send((err, data) => {
                                     if (err) {
-                                        consoleWithMessage(`${opName}`, `FileUpload: ${CERROR}(ERROR)${CRESET} ${err}`)
+                                        consoleWithMessage(`${opName}-FileUpload`, `${CERROR}(ERROR)${CRESET} ${err}`)
                                         reject(err)
                                     } else {
                                         fileInfos.push(data)
-                                        consoleWithMessage(`${opName}`, `FileUpload: ${params.Key}`)
+                                        consoleWithMessage(`${opName}-FileUpload`, `${params.Key}`)
                                         if (++index >= files.length) {
                                             resolve(fileInfos)
                                         }
@@ -379,9 +379,9 @@ const uploadLocalDirectory = function (options) {
                 }).catch(err => reject(err))
             } else {
                 if (err.code == 'BucketAlreadyExists') {
-                    consoleWithMessage(`${opName}`, `CreateBucket: ${CERROR}(ERROR)${CRESET} ${err} *** It has been created by another AWS Account worldwide!`)
+                    consoleWithMessage(`${opName}-CreateBucket`, `${CERROR}(ERROR)${CRESET} ${err} *** It has been created by another AWS Account worldwide!`)
                 } else {
-                    consoleWithMessage(`${opName}`, `CreateBucket: ${CERROR}(ERROR)${CRESET} ${err}`)
+                    consoleWithMessage(`${opName}-CreateBucket`, `${CERROR}(ERROR)${CRESET} ${err}`)
                 }
                 reject(err)
             }
@@ -395,7 +395,7 @@ const uploadLocalFile = function (options) {
     var uploadFileName = path.basename(inputLocalFile)
     return new Promise(function (resolve, reject) {
         try {
-            consoleWithMessage(`${opName}`, `ReadFile: ${inputLocalFile.truncate(50)}`)
+            consoleWithMessage(`${opName}-ReadFile`, `${inputLocalFile.truncate(50)}`)
             fs.readFile(inputLocalFile, function (err, data) {
                 if (err) throw err;
                 adaptor.createBucket(function (err) {
@@ -407,20 +407,20 @@ const uploadLocalFile = function (options) {
                         params.Bucket = bucketName
                     }
                     if (!err || (err.code == 'BucketAlreadyOwnedByYou')) {
-                        consoleWithMessage(`\t Uploading`, `InProgress: \t${0} %`);
+                        consoleWithMessage(`\t Uploading-InProgress`, `\t${0} %`);
                         adaptor.upload(params).on('httpUploadProgress', event => {
-                            consoleWithMessage(`\t Uploading`, `InProgress: \t${parseInt(100 * event.loaded / event.total)} %`);
+                            consoleWithMessage(`\t Uploading-InProgress`, `\t${parseInt(100 * event.loaded / event.total)} %`);
                         }).send((err, data) => {
                             if (err) {
-                                consoleWithMessage(`${opName}`, `FileUpload: ${CERROR}(ERROR)${CRESET} ${err}`)
+                                consoleWithMessage(`${opName}-FileUpload`, `${CERROR}(ERROR)${CRESET} ${err}`)
                                 reject(err)
                             } else {
-                                consoleWithMessage(`${opName}`, `FileUpload: ${data.Location.truncate(50)}`)
+                                consoleWithMessage(`${opName}-FileUpload`, `${data.Location.truncate(50)}`)
                                 resolve({ ...data })
                             }
                         })
                     } else {
-                        consoleWithMessage(`${opName}`, `CreateBucket: ${CERROR}(ERROR)${CRESET} ${err}`)
+                        consoleWithMessage(`${opName}-CreateBucket`, `${CERROR}(ERROR)${CRESET} ${err}`)
                         reject(err)
                     }
                 })
@@ -444,7 +444,7 @@ const uploadDirectoryAsZip = function (options) {
             }
             zip.addLocalFolder(inputDirectory)
             zip.writeZip(outputZippedFilePath)
-            consoleWithMessage(`${opName}`, `ZipFile: ${inputDirectory} > ${outputZippedFilePath.truncate(50)}`)
+            consoleWithMessage(`${opName}-ZipFile`, `${inputDirectory} > ${outputZippedFilePath.truncate(50)}`)
             const zipBuffer = Buffer.concat(zip.getEntries().map(e => {
                 return e.getData()
             }))
@@ -457,7 +457,7 @@ const uploadDirectoryAsZip = function (options) {
                 }).catch(function (err) { reject(err) })
             }
         } catch (err) {
-            consoleWithMessage(`${opName}`, `ZipFile: ${CERROR}(ERROR)${CRESET} ${err}`);
+            consoleWithMessage(`${opName}-ZipFile`, `${CERROR}(ERROR)${CRESET} ${err}`);
             reject(err)
         }
     })
@@ -475,28 +475,28 @@ const createOrUpdateFunction = function (options) {
             },
             ...functionConfig
         };
-        consoleWithMessage(`${opName}`, `CreateFunction: ${functionConfig.FunctionName.truncate(50)}`);
+        consoleWithMessage(`${opName}-CreateFunction`, `${functionConfig.FunctionName.truncate(50)}`);
         adaptor.createFunction(params, function (err, data) {
             if (err) {
                 if (err.code === 'ResourceConflictException') {
-                    consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${functionConfig.FunctionName.truncate(50)}`, err);
+                    consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${functionConfig.FunctionName.truncate(50)}`, err);
                     const unusedProps = ["Code", "Publish", "Tags"]
                     unusedProps.forEach(function (k) { delete params[k] })
                     adaptor.updateFunctionConfiguration(params, function (err) {
                         if (err) {
                             reject(err)
                         } else {
-                            consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${CDONE}(OK)${CRESET}`);
+                            consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${CDONE}(OK)${CRESET}`);
                             adaptor.updateFunctionCode({
                                 FunctionName: functionConfig.FunctionName,
                                 S3Bucket: bucketName,
                                 S3Key: bucketKey
                             }, function (err, data) {
                                 if (err) {
-                                    consoleWithMessage(`${opName}`, `UpdateFunctionCode: ${CERROR}(ERROR)${CRESET} ${err}`);
+                                    consoleWithMessage(`${opName}-UpdateFunctionCode`, `${CERROR}(ERROR)${CRESET} ${err}`);
                                     reject(err)
                                 } else {
-                                    consoleWithMessage(`${opName}`, `UpdateFunctionCode: ${CDONE}(OK)${CRESET}`);
+                                    consoleWithMessage(`${opName}-UpdateFunctionCode`, `${CDONE}(OK)${CRESET}`);
                                     resolve(data)
                                 }
                             })
@@ -505,7 +505,7 @@ const createOrUpdateFunction = function (options) {
                 } else {
                     var index = 0
                     function retryCreateFunction() {
-                        consoleWithMessage(`${opName}`, `CreateFunction: ${functionConfig.FunctionName.truncate(50)}`);
+                        consoleWithMessage(`${opName}-CreateFunction`, `${functionConfig.FunctionName.truncate(50)}`);
                         adaptor.createFunction(params, function (err, data) {
                             if (++index > creationTimeout || !err) {
                                 index > creationTimeout ? reject(`Create Function Timeout - exceeded ${creationTimeout} seconds!`) : resolve({ ...data })
@@ -517,7 +517,7 @@ const createOrUpdateFunction = function (options) {
                     retryCreateFunction()
                 }
             } else {
-                consoleWithMessage(`${opName}`, `CreateFunction: ${CDONE}(OK)${CRESET}`);
+                consoleWithMessage(`${opName}-CreateFunction`, `${CDONE}(OK)${CRESET}`);
                 resolve(data)
             }
         })
@@ -532,10 +532,10 @@ const updateFunctionConfiguration = function (options) {
         unusedProps.forEach(function (k) { delete functionConfig[k] })
         adaptor.updateFunctionConfiguration({ ...functionConfig }, function (err, data) {
             if (err) {
-                consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${CERROR}(ERROR)${CRESET} ${err}`);
+                consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${CERROR}(ERROR)${CRESET} ${err}`);
                 reject(err)
             } else {
-                consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${CDONE}(OK)${CRESET}`);
+                consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${CDONE}(OK)${CRESET}`);
                 resolve(data)
             }
         })
@@ -580,10 +580,10 @@ const createFunctionLayerVersion = function (options) {
             },
             ...layerConfig
         };
-        consoleWithMessage(`${opName}`, `CreateFunctionLayer: ${layerConfig.LayerName}`);
+        consoleWithMessage(`${opName}-CreateFunctionLayer`, `${layerConfig.LayerName}`);
         adaptor.publishLayerVersion(params, function (err, data) {
             if (err) {
-                consoleWithMessage(`${opName}`, `CreateLayerVersion: ${CERROR}(ERROR)${CRESET} ${err}`);
+                consoleWithMessage(`${opName}-CreateLayerVersion`, `${CERROR}(ERROR)${CRESET} ${err}`);
                 reject(err)
             } else {
                 if (!functionConfig.Layers) functionConfig.Layers = []
@@ -613,9 +613,9 @@ const createFunctionLayerVersion = function (options) {
                         Environment: functionConfig.Environment
                     }, function (err, _) {
                         if (err) {
-                            consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${functionName} ${CERROR}(ERROR)${CRESET} ${err}`);
+                            consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${functionName} ${CERROR}(ERROR)${CRESET} ${err}`);
                         } else {
-                            consoleWithMessage(`${opName}`, `UpdateFunctionConfig: ${functionName} ${CDONE}(OK)${CRESET}`);
+                            consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${functionName} ${CDONE}(OK)${CRESET}`);
                         }
                         if (++indexFunctionName >= listFunctionNames.length) {
                             err ? reject(err) : resolve(data)
@@ -635,16 +635,16 @@ const getFunctionMetaInfos = function (options) {
             FunctionName: functionConfig.FunctionName,
             Qualifier: functionConfig.Qualifier
         };
-        consoleWithMessage(`${opName}`, `GetFunction: ${functionConfig.FunctionName.truncate(50)}`, silentIs);
+        consoleWithMessage(`${opName}-GetFunction`, `${functionConfig.FunctionName.truncate(50)}`, silentIs);
         adaptor.getFunction(params, function (err, data) {
             if (err) {
-                consoleWithMessage(`${opName}`, `GetFunction: ${CERROR}(ERROR)${CRESET} ${err}`, silentIs);
+                consoleWithMessage(`${opName}-GetFunction`, `${CERROR}(ERROR)${CRESET} ${err}`, silentIs);
                 reject(err)
             } else {
                 let layerIndex = 0
                 let functionData = { ...data, LayerInfos: [] }
                 functionData.Configuration.Layers = functionData.Configuration.Layers || []
-                consoleWithMessage(`${opName}`, `GetFunctionLayers: ${functionConfig.FunctionName.truncate(50)}`, silentIs);
+                consoleWithMessage(`${opName}-GetFunctionLayers`, `${functionConfig.FunctionName.truncate(50)}`, silentIs);
                 if (typeof logger !== 'undefined') {
                     logger.describeLogGroups({ logGroupNamePrefix: `/aws/lambda/${functionConfig.FunctionName}` }, function (err, data) {
                         if (err) reject(err)
@@ -694,13 +694,13 @@ const updateAPIGatewayDeployment = function (options) {
     var { adaptor, opName, apiConfig } = options
     opName = opName || `updateAPIGatewayDeployment`
     return new Promise(function (resolve, reject) {
-        consoleWithMessage(`${opName}`, `CreateDeployment: ${apiConfig.GatewayId}`);
+        consoleWithMessage(`${opName}-CreateDeployment`, `${apiConfig.GatewayId}`);
         adaptor.createDeployment({
             stageName: apiConfig.StageName,
             restApiId: apiConfig.GatewayId
         }, function (err, data) {
             if (err) {
-                consoleWithMessage(`${opName}`, `CreateDeployment: ${CERROR}(ERROR)${CRESET} ${err}`);
+                consoleWithMessage(`${opName}-CreateDeployment`, `${CERROR}(ERROR)${CRESET} ${err}`);
                 reject(err)
             } else {
                 adaptor.updateStage({
@@ -709,10 +709,10 @@ const updateAPIGatewayDeployment = function (options) {
                     patchOperations: [{ op: 'replace', path: '/deploymentId', value: data.id }]
                 }, function (err, data) {
                     if (err) {
-                        consoleWithMessage(`${opName}`, `UpdateDeploymentStage: ${CERROR}(ERROR)${CRESET} ${err}`);
+                        consoleWithMessage(`${opName}-UpdateDeploymentStage`, `${CERROR}(ERROR)${CRESET} ${err}`);
                         reject(err)
                     } else {
-                        consoleWithMessage(`${opName}`, `UpdateDeploymentStage: ${CDONE}(OK)${CRESET}`);
+                        consoleWithMessage(`${opName}-UpdateDeploymentStage`, `${CDONE}(OK)${CRESET}`);
                         resolve(data)
                     }
                 });
@@ -729,11 +729,11 @@ const createOrUpdateStackOnComplete = function (options) {
         const timeoutInMinutes = poolingTimeout * internvalTime
         opName = opName || `createOrUpdateStackOnComplete`
         createOrUpdateStack(options).then(function (data) {
-            consoleWithMessage(`${opName}`, `CreateStackOrUpdate: Creating ${(data.StackName || data.StackId).truncate(50)}`);
+            consoleWithMessage(`${opName}-CreateStackOrUpdate`, `Creating ${(data.StackName || data.StackId).truncate(50)}`);
             const whileStatusIsPending = function () {
                 checkStackStatusOnComplete(options, data).then(function (data) {
                     if (typeof data.Error === "undefined") {
-                        consoleWithMessage(`${opName}`, `CreateStackOrUpdate: ${CDONE}(${data.StackName})${CRESET} ${data.StackStatus}`);
+                        consoleWithMessage(`${opName}-CreateStackOrUpdate`, `${CDONE}(${data.StackName})${CRESET} ${data.StackStatus}`);
                         if (data.StackStatus == "DELETE_COMPLETE" || data.StackStatus == "DELETE_FAILED" ||
                             data.StackStatus == "ROLLBACK_COMPLETE" || data.StackStatus == "ROLLBACK_FAILED" ||
                             data.StackStatus == "CLEANUP_COMPLETE") {
@@ -742,11 +742,11 @@ const createOrUpdateStackOnComplete = function (options) {
                             resolve(data)
                         }
                     } else {
-                        consoleWithMessage(`${opName}`, `CreateStackOrUpdate: (${(data.StackName || data.StackId).truncate(50)}) ${data.StackStatus}`);
+                        consoleWithMessage(`${opName}-CreateStackOrUpdate`, `(${(data.StackName || data.StackId).truncate(50)}) ${data.StackStatus}`);
                         reject(data.Error)
                     }
                 }, function (stackObject) {
-                    consoleWithMessage(`${opName}`, `CreateStackOrUpdate: (${options.stackName}) ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
+                    consoleWithMessage(`${opName}-CreateStackOrUpdate`, `(${options.stackName}) ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
                     setTimeout(whileStatusIsPending, internvalTime);
                     if (--poolingTimeout <= 0) {
                         reject({ message: `Operation Timeout: Running over ${timeoutInMinutes} mins` })
@@ -762,7 +762,7 @@ const createOrUpdateStackOnComplete = function (options) {
                     err ? reject(err) : resolve(data.Stacks[0])
                 })
             } else {
-                consoleWithMessage(`${opName}`, `CreateStackOrUpdate: (${options.stackName}) ${CERROR}(ERROR)${CRESET} ${err}`);
+                consoleWithMessage(`${opName}-CreateStackOrUpdate`, `(${options.stackName}) ${CERROR}(ERROR)${CRESET} ${err}`);
                 reject(err)
             }
         })
@@ -777,12 +777,12 @@ const deleteStackOnComplete = function (options) {
         const timeoutInMinutes = poolingTimeout * internvalTime
         opName = opName || `deleteStackOnComplete`
         deleteExistingStack(options).then(function (data) {
-            consoleWithMessage(`${opName}`, `DeleteExistingStack: Deleting ${options.stackName}`);
+            consoleWithMessage(`${opName}-DeleteExistingStack`, `Deleting ${options.stackName}`);
             const whileStatusIsPending = function () {
                 data.StackName = data.StackName || options.stackName
                 checkStackStatusOnComplete(options, data).then(function (data) {
                     if (typeof data.Error === "undefined") {
-                        consoleWithMessage(`${opName}`, `DeleteExistingStack: ${CDONE}(OK)${CRESET} with ${data.StackStatus}`);
+                        consoleWithMessage(`${opName}-DeleteExistingStack`, `${CDONE}(OK)${CRESET} with ${data.StackStatus}`);
                         if (data.StackStatus == "DELETE_COMPLETE" || data.StackStatus == "DELETE_FAILED" ||
                             data.StackStatus == "ROLLBACK_COMPLETE" || data.StackStatus == "ROLLBACK_FAILED") {
                             reject(data)
@@ -793,12 +793,12 @@ const deleteStackOnComplete = function (options) {
                         if (data.Error.code === "ValidationError") {
                             resolve({ RequestId: data.Error.requestId })
                         } else {
-                            consoleWithMessage(`${opName}`, `DeleteExistingStack: (${options.stackName}) ${CERROR}(ERROR)${CRESET} ${data.Error}`);
+                            consoleWithMessage(`${opName}-DeleteExistingStack`, `(${options.stackName}) ${CERROR}(ERROR)${CRESET} ${data.Error}`);
                             reject(data.Error)
                         }
                     }
                 }, function (stackObject) {
-                    consoleWithMessage(`${opName}`, `DeleteExistingStack: (${options.stackName}) ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
+                    consoleWithMessage(`${opName}-DeleteExistingStack`, `(${options.stackName}) ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
                     setTimeout(whileStatusIsPending, internvalTime);
                     if (--poolingTimeout <= 0) {
                         reject({ message: `Operation Timeout: Running over ${timeoutInMinutes} mins` })
@@ -807,7 +807,7 @@ const deleteStackOnComplete = function (options) {
             }
             setTimeout(whileStatusIsPending, internvalTime);
         }, function (err) {
-            consoleWithMessage(`${opName}`, `DeleteExistingStack: (${options.stackName}) ${CERROR}(ERROR)${CRESET} ${err}`);
+            consoleWithMessage(`${opName}-DeleteExistingStack`, `(${options.stackName}) ${CERROR}(ERROR)${CRESET} ${err}`);
             reject(err)
         })
     })
@@ -822,19 +822,19 @@ const deleteFunctionLayerVersions = function (options) {
         functionConfig.Layers.forEach(function (layer) {
             const layerArnWithVersion = layer.split(':')
             const layerOnlyARN = layerArnWithVersion.splice(0, layerArnWithVersion.length - 1).join(':')
-            consoleWithMessage(`${opName}`, `ListLayerVersions: ${layerOnlyARN.truncate(50)}`);
+            consoleWithMessage(`${opName}-ListLayerVersions`, `${layerOnlyARN.truncate(50)}`);
             adaptor.listLayerVersions({ LayerName: layerOnlyARN }, function (err, data) {
                 let layerVersionIndex = 0
                 function deleteOneLayerVersion(index) {
                     const layerVersionNumber = data.LayerVersions[index].Version
                     adaptor.deleteLayerVersion({ LayerName: layerOnlyARN, VersionNumber: layerVersionNumber }, function (err) {
                         if (err) {
-                            consoleWithMessage(`${opName}`, `DeleteLayerVersion: ${CERROR}(ERROR)${CRESET} ${err}`);
+                            consoleWithMessage(`${opName}-DeleteLayerVersion`, `${CERROR}(ERROR)${CRESET} ${err}`);
                         } else if (++index < data.LayerVersions.length) {
-                            consoleWithMessage(`${opName}`, `DeleteLayerVersion: ${CDONE}(OK)${CRESET} ${layerOnlyARN.truncate(50)}:${layerVersionNumber}`);
+                            consoleWithMessage(`${opName}-DeleteLayerVersion`, `${CDONE}(OK)${CRESET} ${layerOnlyARN.truncate(50)}:${layerVersionNumber}`);
                             deleteOneLayerVersion(index)
                         } else {
-                            consoleWithMessage(`${opName}`, `DeleteLayerVersion: ${CDONE}(OK)${CRESET} ${layerOnlyARN.truncate(50)}:${layerVersionNumber}`);
+                            consoleWithMessage(`${opName}-DeleteLayerVersion`, `${CDONE}(OK)${CRESET} ${layerOnlyARN.truncate(50)}:${layerVersionNumber}`);
                             if (++layerDeletionIndex >= functionConfig.Layers.length) {
                                 resolve(functionConfig.Layers)
                             }
@@ -842,7 +842,7 @@ const deleteFunctionLayerVersions = function (options) {
                     })
                 }
                 if (err) {
-                    consoleWithMessage(`${opName}`, `ListLayerVersions: ${CERROR}(ERROR)${CRESET} ${err}`);
+                    consoleWithMessage(`${opName}-ListLayerVersions`, `${CERROR}(ERROR)${CRESET} ${err}`);
                     reject(err)
                 } else if (data.LayerVersions.length > 0) {
                     deleteOneLayerVersion(layerVersionIndex)
@@ -856,7 +856,7 @@ const deleteFunction = function (options) {
     var { adaptor, opName, functionConfig, withLayerVersions } = options
     opName = opName || `deleteFunction`
     return new Promise(function (resolve, reject) {
-        consoleWithMessage(`${opName}`, `DeleteFunction: ${functionConfig.FunctionName.truncate(50)}`);
+        consoleWithMessage(`${opName}-DeleteFunction`, `${functionConfig.FunctionName.truncate(50)}`);
         adaptor.deleteFunction({
             FunctionName: functionConfig.FunctionName
         }, function (err) {
@@ -896,7 +896,7 @@ const deleteStorageBucket = function (options) {
     return new Promise(function (resolve, reject) {
         adaptor.listObjects({ Bucket: bucketName }, function (err, data) {
             if (err) {
-                consoleWithMessage(`${opName}`, `ListDeploymentObjects: ${CERROR}(ERROR)${CRESET} ${err}`)
+                consoleWithMessage(`${opName}-ListDeploymentObjects`, `${CERROR}(ERROR)${CRESET} ${err}`)
                 reject(err)
             } else {
                 const bucketKeys = data.Contents.map(function (content) {
@@ -904,15 +904,15 @@ const deleteStorageBucket = function (options) {
                 })
                 adaptor.deleteObjects({ Bucket: bucketName, Delete: { Objects: bucketKeys, Quiet: true } }, function (err) {
                     if (err) {
-                        consoleWithMessage(`${opName}`, `DeleteDeploymentObjects: ${CERROR}(ERROR)${CRESET} ${err}`)
+                        consoleWithMessage(`${opName}-DeleteDeploymentObjects`, `${CERROR}(ERROR)${CRESET} ${err}`)
                         reject(err)
                     } else {
                         adaptor.deleteBucket({ Bucket: bucketName }, function (err, data) {
                             if (err) {
-                                consoleWithMessage(`${opName}`, `DeleteDeploymentBucket: ${CERROR}(ERROR)${CRESET} ${err}`)
+                                consoleWithMessage(`${opName}-DeleteDeploymentBucket`, `${CERROR}(ERROR)${CRESET} ${err}`)
                                 reject(err)
                             } else {
-                                consoleWithMessage(`${opName}`, `DeleteDeploymentBucket: ${CDONE}(OK)${CRESET} ${bucketName} was deleted!`)
+                                consoleWithMessage(`${opName}-DeleteDeploymentBucket`, `${CDONE}(OK)${CRESET} ${bucketName} was deleted!`)
                                 resolve(data)
                             }
                         })
@@ -1197,12 +1197,12 @@ const silentWithSpinner = function () {
 
 const consoleWithMessage = function (opName, message, silent) {
     opName = `${CBEGIN}Simplify${CRESET} | ${opName}` || `${CBEGIN}Simplify${CRESET} | unknownOperation`
-    !silent ? process.stdout.write("\r") && console.log(`${opName}-${message.truncate(150)}`) : silentWithSpinner()
+    !silent ? process.stdout.write("\r") && console.log(`${opName}:`, `${message.truncate(150)}`) : silentWithSpinner()
 }
 
 const consoleWithErrors = function (opName, error, silent) {
     opName = `${CBEGIN}Simplify${CRESET} | ${opName}` || `${CBEGIN}Simplify${CRESET} | unknownOperation`
-    !silent ? process.stdout.write("\r") && console.log(`${opName}-${CNOTIF}${error.message.truncate(150)}${CRESET}`) : silentWithSpinner()
+    !silent ? process.stdout.write("\r") && console.log(`${opName}:`, `${CNOTIF}${(error.message || error).truncate(150)}${CRESET}`) : silentWithSpinner()
 }
 
 const deleteDeploymentBucket = deleteStorageBucket

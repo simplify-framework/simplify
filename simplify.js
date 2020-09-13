@@ -275,6 +275,7 @@ const checkStackStatusOnComplete = function (options, stackData) {
                 if (data.Stacks.length && (
                     currentStack.StackStatus == "UPDATE_COMPLETE" ||
                     currentStack.StackStatus == "UPDATE_ROLLBACK_COMPLETE" ||
+                    currentStack.StackStatus == "UPDATE_FAILED" ||
                     currentStack.StackStatus == "CREATE_COMPLETE" ||
                     currentStack.StackStatus == "ROLLBACK_COMPLETE" ||
                     currentStack.StackStatus == "ROLLBACK_FAILED" ||
@@ -294,9 +295,10 @@ const checkStackStatusOnComplete = function (options, stackData) {
                                 )) {
                                     return `${CRESET}(${stackEvent.LogicalResourceId}) - ${CERROR}${stackEvent.ResourceStatus}${CRESET} - ${CNOTIF}${stackEvent.ResourceStatusReason}${CRESET}`
                                 }
-                            }).filter(msgNotNull => msgNotNull)
+                            }).filter(msgNotNull => msgNotNull).reduce((arr, item) => [
+                                ...arr.filter((obj) => obj.ResourceStatusReason !== item.ResourceStatusReason), item
+                            ], []);
                             if (currentStack.StackStatus == "UPDATE_COMPLETE" ||
-                                currentStack.StackStatus == "UPDATE_ROLLBACK_COMPLETE" ||
                                 currentStack.StackStatus == "CREATE_COMPLETE" ||
                                 currentStack.StackStatus == "DELETE_COMPLETE") {
                                 resolve(currentStack)
@@ -736,7 +738,7 @@ const createOrUpdateStackOnComplete = function (options) {
                         consoleWithMessage(`${opName}-CreateStackOrUpdate`, `${CDONE}(${data.StackName})${CRESET} ${data.StackStatus}`);
                         if (data.StackStatus == "DELETE_COMPLETE" || data.StackStatus == "DELETE_FAILED" ||
                             data.StackStatus == "ROLLBACK_COMPLETE" || data.StackStatus == "ROLLBACK_FAILED" ||
-                            data.StackStatus == "CLEANUP_COMPLETE") {
+                            data.StackStatus == "CLEANUP_COMPLETE" || data.StackStatus == "UPDATE_FAILED") {
                             reject(data)
                         } else {
                             resolve(data)
@@ -746,7 +748,7 @@ const createOrUpdateStackOnComplete = function (options) {
                         reject(data.Error)
                     }
                 }, function (stackObject) {
-                    consoleWithMessage(`${opName}-CreateStackOrUpdate`, `(${options.stackName}) ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
+                    consoleWithMessage(`${opName}-CreateStackOrUpdate`, `(${options.stackName}) ${stackObject.StackStatus}`);
                     setTimeout(whileStatusIsPending, internvalTime);
                     if (--poolingTimeout <= 0) {
                         reject({ message: `Operation Timeout: Running over ${timeoutInMinutes} mins` })
@@ -798,7 +800,7 @@ const deleteStackOnComplete = function (options) {
                         }
                     }
                 }, function (stackObject) {
-                    consoleWithMessage(`${opName}-DeleteExistingStack`, `(${options.stackName}) ${stackObject.StackStatus} ${stackObject.StackStatusReason || ''}`);
+                    consoleWithMessage(`${opName}-DeleteExistingStack`, `(${options.stackName}) ${stackObject.StackStatus}`);
                     setTimeout(whileStatusIsPending, internvalTime);
                     if (--poolingTimeout <= 0) {
                         reject({ message: `Operation Timeout: Running over ${timeoutInMinutes} mins` })

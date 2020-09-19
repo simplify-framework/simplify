@@ -59,15 +59,17 @@ const getFunctionSha256 = function (outputFilePath, name) {
 const getContentArgs = function (...args) {
     var template = args.shift()
     function parseVariables(v) {
-        Object.keys(process.env).map(function (e) {
-            v = v.replace(new RegExp('\\${' + e + '}', 'g'), process.env[e])
-        })
         args.forEach(function (a) {
             if (typeof a === 'object') {
                 Object.keys(a).map(function (i) {
-                    v = v.replace(new RegExp('\\${' + i + '}', 'g'), a[i])
+                    if (a[i]) {
+                        v = v.replace(new RegExp('\\${' + i + '}', 'g'), a[i])
+                    }
                 })
             }
+        })
+        Object.keys(process.env).map(function (e) {
+            v = v.replace(new RegExp('\\${' + e + '}', 'g'), process.env[e])
         })
         return v.replace(/\${DATE_TODAY}/g, utilities.getDateToday()).replace(/\${TIME_MOMENT}/g, utilities.getTimeMoment())
     }
@@ -510,7 +512,7 @@ const createOrUpdateFunction = function (options) {
                         consoleWithMessage(`${opName}-CreateFunction`, `${functionConfig.FunctionName.truncate(50)}`);
                         adaptor.createFunction(params, function (err, data) {
                             if (++index > creationTimeout || !err) {
-                                index > creationTimeout ? reject(`Create Function Timeout - exceeded ${creationTimeout} seconds!`) : resolve({ ...data })
+                                index > creationTimeout ? reject(`Create Function Timeout with (Error): ${err}`) : resolve({ ...data })
                             } else {
                                 setTimeout(() => retryCreateFunction(), 1000)
                             }
@@ -1182,7 +1184,6 @@ const finishWithErrors = function (opName, err) {
 
 const finishWithSuccess = function (message) {
     console.log(`\n * ${message.truncate(150)} \n`)
-    process.exit(0)
 }
 
 const finishWithMessage = function (opName, message) {

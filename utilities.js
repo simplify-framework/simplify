@@ -171,7 +171,7 @@ const downloadFileFromUrl = function (url, dest) {
 }
 
 async function getFilesInDirectory(dir) {
-    const subdirs = await readdir(dir);
+    const subdirs = await readdir(dir + "/");
     const files = await Promise.all(subdirs.map(async (subdir) => {
       const res = resolve(dir, subdir);
       return (await stat(res)).isDirectory() ? getFilesInDirectory(res) : res;

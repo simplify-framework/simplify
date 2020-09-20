@@ -448,7 +448,7 @@ const uploadDirectoryAsZip = function (options) {
             }
             zip.addLocalFolder(inputDirectory)
             zip.writeZip(outputZippedFilePath)
-            consoleWithMessage(`${opName}-ZipFile`, `${inputDirectory} > ${outputZippedFilePath.truncate(50)}`)
+            consoleWithMessage(`${opName}-ZipFile`, `${inputDirectory.truncate(30)} > ${outputZippedFilePath.truncate(30)}`)
             const zipBuffer = Buffer.concat(zip.getEntries().map(e => {
                 return e.getData()
             }))

@@ -17,35 +17,37 @@ process.env.AWS_SDK_LOAD_CONFIG = process.env.AWS_SDK_LOAD_CONFIG || true
 module.exports = {
     setConfig: function (config) {
         return new Promise(function (resolve, reject) {
-            AWS.CredentialProviderChain.defaultProviders = [
-                function () { return new AWS.SharedIniFileCredentials(config.Profile ? { profile: config.Profile } : {}); },
-                function () { return new AWS.EnvironmentCredentials('AWS'); },
-                function () { return new AWS.ECSCredentials(); },
-                function () { return new AWS.ProcessCredentials(); },
-                function () { return new AWS.EC2MetadataCredentials() },
-                function () { return new AWS.EnvironmentCredentials('AMAZON'); },
-                function () { return new AWS.TokenFileWebIdentityCredentials(); }
-            ]
-            new AWS.CredentialProviderChain().resolve(function (err, credentials) {
-                if (err) {
-                    reject(err)
-                } else {
-                    AWS.config.update({ credentials: credentials });
-                    console.log(`${CBEGIN}Simplify${CRESET} | AWSProvider-Credentials: ${AWS.config.credentials.profile ? AWS.config.credentials.profile : 'default'}`)
-                    s3BucketParams.Bucket = (config.Bucket || {}).Name
-                    if (config.Region != 'us-east-1') {
-                        s3BucketParams.CreateBucketConfiguration = {
-                            LocationConstraint: config.Region
+            try {
+                AWS.CredentialProviderChain.defaultProviders = [
+                    function () { return new AWS.SharedIniFileCredentials(config.Profile ? { profile: config.Profile } : {}); },
+                    function () { return new AWS.EnvironmentCredentials('AWS'); },
+                    function () { return new AWS.ECSCredentials(); },
+                    function () { return new AWS.ProcessCredentials(); },
+                    function () { return new AWS.EC2MetadataCredentials() },
+                    function () { return new AWS.EnvironmentCredentials('AMAZON'); },
+                    function () { return new AWS.TokenFileWebIdentityCredentials(); }
+                ]
+                new AWS.CredentialProviderChain().resolve(function (err, credentials) {
+                    if (err) {
+                        reject({ message: `Invalid AWS Credentials configuration ${config.Profile ? `profile ${config.Profile}`: 'settings'}` })
+                    } else {
+                        AWS.config.update({ credentials: credentials });
+                        console.log(`${CBEGIN}Simplify${CRESET} | AWSProvider-Credentials: ${AWS.config.credentials.profile ? AWS.config.credentials.profile : 'default'}`)
+                        s3BucketParams.Bucket = (config.Bucket || {}).Name
+                        if (config.Region != 'us-east-1') {
+                            s3BucketParams.CreateBucketConfiguration = {
+                                LocationConstraint: config.Region
+                            }
                         }
+                        if (config.ServerSideEncryption && config.SSEKMSKeyId) {
+                            s3BucketParams.ServerSideEncryption = config.ServerSideEncryption
+                            s3BucketParams.SSEKMSKeyId = config.SSEKMSKeyId
+                        }
+                        awsconfig = config
+                        resolve(AWS.config.credentials)
                     }
-                    if (config.ServerSideEncryption && config.SSEKMSKeyId) {
-                        s3BucketParams.ServerSideEncryption = config.ServerSideEncryption
-                        s3BucketParams.SSEKMSKeyId = config.SSEKMSKeyId
-                    }
-                    awsconfig = config
-                    resolve(AWS.config.credentials)
-                }
-            });
+                })
+            } catch(err) { reject({ message: 'Unhandled AWS Credentials exception' }) };
         })
     },
     getStorage: function () {

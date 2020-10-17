@@ -1249,4 +1249,4 @@ module.exports = {
     finishWithErrors
 }
 
-showBoxBanner()
+process.env.DISABLE_BOX_BANNER || showBoxBanner()

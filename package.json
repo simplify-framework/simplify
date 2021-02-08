@@ -5,7 +5,7 @@
   "main": "simplify.js",
   "dependencies": {
     "console-table-printer": "^1.5.3",
-    "aws-sdk": "^2.592.0",
+    "aws-sdk": "^2.814.0",
     "adm-zip": "^0.4.14"
   },
   "repository": {

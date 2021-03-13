@@ -4,9 +4,9 @@
   "description": "Simplify Framework SDK library for NodeJS",
   "main": "simplify.js",
   "dependencies": {
-    "console-table-printer": "^1.5.3",
+    "adm-zip": "^0.4.14",
     "aws-sdk": "^2.814.0",
-    "adm-zip": "^0.4.14"
+    "console-table-printer": "^1.5.3"
   },
   "repository": {
     "type": "git",

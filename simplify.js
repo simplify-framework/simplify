@@ -71,7 +71,9 @@ const getContentArgs = function (...args) {
         Object.keys(process.env).map(function (e) {
             v = v.replace(new RegExp('\\${' + e + '}', 'g'), process.env[e])
         })
-        return v.replace(/\${DATE_TODAY}/g, utilities.getDateToday()).replace(/\${TIME_MOMENT}/g, utilities.getTimeMoment())
+        v = v.replace(/\${DATE_TODAY}/g, utilities.getDateToday()).replace(/\${TIME_MOMENT}/g, utilities.getTimeMoment())
+        v = v.replace(new RegExp(/ *\{[^)]*\} */, 'g'), `(not set)`).replace(new RegExp('\\$', 'g'),'')
+        return v
     }
     function parseKeyValue(obj) {
         Object.keys(obj).map(function (k, i) {

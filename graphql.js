@@ -28,10 +28,12 @@ class StateExecution {
 
         return new Promise((resolve, reject) => {
             const _modulePath = `${path.join(_thisFunction.executionPath, stateObject.Run)}`
-            const fModule = __non_webpack_require__(`${_thisFunction.executionName}`)
             let _stateFunction = __non_webpack_require__(_modulePath).handler
-            if (process.env.MONOLITHIC_CODE == "YES" && fModule[stateObject.Run]) {
-                _stateFunction = fModule[stateObject.Run].handler
+            if (process.env.MONOLITHIC_CODE !== "YES") {
+                const fModule = __non_webpack_require__(`${_thisFunction.executionName}`)
+                if (fModule[stateObject.Run]) {
+                    _stateFunction = fModule[stateObject.Run].handler
+                }
             }
             _thisFunction.verbose(`StateExecution:RUN_CONTEXT name = ${stateObject.Run} args =`, JSON.stringify(event.args))
             _stateFunction(event, context, function (err, data) {

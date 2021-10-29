@@ -566,7 +566,7 @@ const updateFunctionConfiguration = function (options) {
     return new Promise(function (resolve, reject) {
         const unusedProps = ["Code", "Publish", "Tags"]
         unusedProps.forEach(function (k) { delete functionConfig[k] })
-        adaptor.waitFor('functionActive', { FunctionName: data.FunctionArn }, function(err, data) {
+        adaptor.waitFor('functionActive', { FunctionName: functionConfig.FunctionName }, function(err, data) {
             if (err) {
                 reject(err);
             } else {

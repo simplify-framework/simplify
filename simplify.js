@@ -566,21 +566,27 @@ const updateFunctionConfiguration = function (options) {
     return new Promise(function (resolve, reject) {
         const unusedProps = ["Code", "Publish", "Tags"]
         unusedProps.forEach(function (k) { delete functionConfig[k] })
-        adaptor.updateFunctionConfiguration({ ...functionConfig }, function (err, data) {
+        adaptor.waitFor('functionActive', { FunctionName: data.FunctionArn }, function(err, data) {
             if (err) {
-                consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${CERROR}(ERROR)${CRESET} ${err}`);
-                reject(err)
+                reject(err);
             } else {
-                adaptor.waitFor('functionUpdated', { FunctionName: data.FunctionArn }, function(err, data) {
+                adaptor.updateFunctionConfiguration({ ...functionConfig }, function (err, data) {
                     if (err) {
-                        reject(err);
+                        consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${CERROR}(ERROR)${CRESET} ${err}`);
+                        reject(err)
                     } else {
-                        consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${CDONE}(OK)${CRESET}`);
-                        resolve(data)
+                        adaptor.waitFor('functionUpdated', { FunctionName: data.FunctionArn }, function(err, data) {
+                            if (err) {
+                                reject(err);
+                            } else {
+                                consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${CDONE}(OK)${CRESET}`);
+                                resolve(data)
+                            }
+                        });
                     }
-                });
+                })
             }
-        })
+        });
     })
 }
 
@@ -608,40 +614,6 @@ const publishFunctionVersion = function (options) {
         }, function (err, functionVersion) {
             err ? reject(err) : resolve(functionVersion)
         })
-    })
-}
-
-const tryToUpdateFunctionCode = function(options, resolve, reject, retry = 3) {
-    var { adaptor, opName, bucketName, bucketKey, functionConfig } = options;
-    opName = opName || `createOrUpdateFunction`;
-    let retryTime = 0;
-    getFunctionConfiguration(options).then((result) => {
-        if (result.State !== 'Pending') {
-            adaptor.updateFunctionCode({
-                FunctionName: functionConfig.FunctionName,
-                S3Bucket: bucketName,
-                S3Key: bucketKey
-            }, function (err, data) {
-                if (err) {
-                    consoleWithMessage(`${opName}`, `UpdateFunctionCode: ${CERROR}(ERROR)${CRESET} ${err}`);
-                    reject(err)
-                } else {
-                    consoleWithMessage(`${opName}`, `UpdateFunctionCode: ${CDONE}(OK)${CRESET}`);
-                    resolve(data)
-                }
-            })
-        } else {
-            retryTime += 1;
-            if (retryTime < retry) {
-                setTimeout(() => tryToUpdateFunctionCode(options, resolve, reject), 3000);
-            } else {
-                consoleWithMessage(`${opName}`, `UpdateFunctionCode: ${CERROR}(ERROR TIMEOUT)${CRESET}`);
-                reject(result);
-            }
-        }
-    }).catch((err) => {
-        consoleWithMessage(`${opName}`, `UpdateFunctionCode: ${CERROR}(ERROR)${CRESET}`);
-        reject(err)
     })
 }
 

@@ -490,12 +490,36 @@ const createOrUpdateFunction = function (options) {
                     consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${functionConfig.FunctionName.truncate(50)}`, err);
                     const unusedProps = ["Code", "Publish", "Tags"]
                     unusedProps.forEach(function (k) { delete params[k] })
-                    adaptor.updateFunctionConfiguration(params, function (err) {
+                    adaptor.updateFunctionConfiguration(params, function (err, data) {
                         if (err) {
                             reject(err)
                         } else {
-                            consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${CDONE}(OK)${CRESET}`);
-                            tryToUpdateFunctionCode(options, resolve, reject);
+                            adaptor.waitFor('functionUpdated', { FunctionName: data.FunctionArn }, function(err, data) {
+                                if (err) {
+                                    reject(err);
+                                } else {
+                                    consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${CDONE}(OK)${CRESET}`);
+                                    adaptor.updateFunctionCode({
+                                         FunctionName: functionConfig.FunctionName,
+                                         S3Bucket: bucketName,
+                                         S3Key: bucketKey
+                                     }, function (err, data) {
+                                         if (err) {
+                                             consoleWithMessage(`${opName}-UpdateFunctionCode`, `${CERROR}(ERROR)${CRESET} ${err}`);
+                                             reject(err)
+                                         } else {
+                                             adaptor.waitFor('functionUpdated', { FunctionName: data.FunctionArn }, function(err, data) {
+                                                if (err) {
+                                                    reject(err);
+                                                } else {
+                                                     consoleWithMessage(`${opName}-UpdateFunctionCode`, `${CDONE}(OK)${CRESET}`);
+                                                     resolve(data)
+                                                }
+                                             });
+                                         }
+                                     });
+                                }
+                            });
                         }
                     });
                 } else {
@@ -503,8 +527,18 @@ const createOrUpdateFunction = function (options) {
                     function retryCreateFunction() {
                         consoleWithMessage(`${opName}-CreateFunction`, `${functionConfig.FunctionName.truncate(50)}`);
                         adaptor.createFunction(params, function (err, data) {
-                            if (++index > creationTimeout || !err) {
-                                index > creationTimeout ? reject(`Create Function Timeout with (Error): ${err}`) : resolve({ ...data })
+                            if (++index > creationTimeout) {
+                                reject(`Create Function Timeout with (Error): ${err}`)
+                            } else if (!err) {
+                                resolve({ ...data });
+                                adaptor.waitFor('functionActive', { FunctionName: data.FunctionArn }, function(err, data) {
+                                    if (err) {
+                                        reject(err);
+                                    } else {
+                                        consoleWithMessage(`${opName}-CreateFunction`, `${CDONE}(OK)${CRESET}`);
+                                        resolve(data)
+                                    }
+                                });
                             } else {
                                 setTimeout(() => retryCreateFunction(), 1000)
                             }
@@ -513,8 +547,14 @@ const createOrUpdateFunction = function (options) {
                     retryCreateFunction()
                 }
             } else {
-                consoleWithMessage(`${opName}-CreateFunction`, `${CDONE}(OK)${CRESET}`);
-                resolve(data)
+                adaptor.waitFor('functionActive', { FunctionName: data.FunctionArn }, function(err, data) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        consoleWithMessage(`${opName}-CreateFunction`, `${CDONE}(OK)${CRESET}`);
+                        resolve(data)
+                    }
+                });
             }
         })
     })
@@ -526,15 +566,27 @@ const updateFunctionConfiguration = function (options) {
     return new Promise(function (resolve, reject) {
         const unusedProps = ["Code", "Publish", "Tags"]
         unusedProps.forEach(function (k) { delete functionConfig[k] })
-        adaptor.updateFunctionConfiguration({ ...functionConfig }, function (err, data) {
+        adaptor.waitFor('functionActive', { FunctionName: functionConfig.FunctionName }, function(err, data) {
             if (err) {
-                consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${CERROR}(ERROR)${CRESET} ${err}`);
-                reject(err)
+                reject(err);
             } else {
-                consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${CDONE}(OK)${CRESET}`);
-                resolve(data)
+                adaptor.updateFunctionConfiguration({ ...functionConfig }, function (err, data) {
+                    if (err) {
+                        consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${CERROR}(ERROR)${CRESET} ${err}`);
+                        reject(err)
+                    } else {
+                        adaptor.waitFor('functionUpdated', { FunctionName: data.FunctionArn }, function(err, data) {
+                            if (err) {
+                                reject(err);
+                            } else {
+                                consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${CDONE}(OK)${CRESET}`);
+                                resolve(data)
+                            }
+                        });
+                    }
+                })
             }
-        })
+        });
     })
 }
 
@@ -562,40 +614,6 @@ const publishFunctionVersion = function (options) {
         }, function (err, functionVersion) {
             err ? reject(err) : resolve(functionVersion)
         })
-    })
-}
-
-const tryToUpdateFunctionCode = function(options, resolve, reject, retry = 3) {
-    var { adaptor, opName, bucketName, bucketKey, functionConfig } = options;
-    opName = opName || `createOrUpdateFunction`;
-    let retryTime = 0;
-    getFunctionConfiguration(options).then((result) => {
-        if (result.State !== 'Pending') {
-            adaptor.updateFunctionCode({
-                FunctionName: functionConfig.FunctionName,
-                S3Bucket: bucketName,
-                S3Key: bucketKey
-            }, function (err, data) {
-                if (err) {
-                    consoleWithMessage(`${opName}`, `UpdateFunctionCode: ${CERROR}(ERROR)${CRESET} ${err}`);
-                    reject(err)
-                } else {
-                    consoleWithMessage(`${opName}`, `UpdateFunctionCode: ${CDONE}(OK)${CRESET}`);
-                    resolve(data)
-                }
-            })
-        } else {
-            retryTime += 1;
-            if (retryTime < retry) {
-                setTimeout(() => tryToUpdateFunctionCode(options, resolve, reject), 3000);
-            } else {
-                consoleWithMessage(`${opName}`, `UpdateFunctionCode: ${CERROR}(ERROR TIMEOUT)${CRESET}`);
-                reject(result);
-            }
-        }
-    }).catch((err) => {
-        consoleWithMessage(`${opName}`, `UpdateFunctionCode: ${CERROR}(ERROR)${CRESET}`);
-        reject(err)
     })
 }
 

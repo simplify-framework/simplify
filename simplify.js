@@ -1252,6 +1252,21 @@ const consoleWithErrors = function (opName, error, silent) {
     !silent ? process.stdout.write("\r") && console.log(`${opName}:`, `${CNOTIF}${(error.message || error).truncate(150)}${CRESET}`) : silentWithSpinner()
 }
 
+const listFunctionsInfo = function (options) {
+    var { adaptor, opName, searchKey } = options
+    opName = opName || `getFunctionConfiguration`
+    return new Promise(function (resolve, reject) {
+        adaptor.listFunctions({
+            FunctionVersion: options.FunctionVersion || 'ALL',
+            MasterRegion: options.MasterRegion,
+            MaxItems: options.MaxItems || 50,
+            Marker: options.Marker
+        }, function (err, functions) {
+            err ? reject(err) : resolve(functions.Functions.map(f => searchKey && f.FunctionName.indexOf(searchKey) >= 0 || !searchKey ? { FunctionArn: f.FunctionArn, Version: f.Version, KMSKeyArn: f.KMSKeyArn }: undefined).filter(x =>x))
+        })
+    })
+}
+
 const deleteDeploymentBucket = deleteStorageBucket
 
 module.exports = {
@@ -1260,6 +1275,7 @@ module.exports = {
     getContentFile,
     getInputConfig,
     uploadLocalFile,
+    listFunctionsInfo,
     getFunctionSha256,
     uploadLocalDirectory,
     uploadDirectoryAsZip,

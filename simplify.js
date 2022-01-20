@@ -1220,6 +1220,26 @@ const getFunctionMetricData = function (options) {
     })
 }
 
+const getFunctionRolePolicies = function (options) {
+    var { adaptor, logger, opName, functionConfig } = options
+    return new Promise(function (resolve, reject) {
+        if (functionConfig.Role) {
+            const roleName = functionConfig.Role.split('/')[1].trim()
+            adaptor.listRolePolicies({ RoleName: roleName }, function (err, roleData) {
+                Promise.all(roleData.PolicyNames.map(policyName => {
+                    return new Promise((resolve) => {
+                        adaptor.getRolePolicy({ RoleName: roleName, PolicyName: `${policyName}` }, function (err, policyData) {
+                            err ? resolve({}) : resolve({ RoleName: roleName, PolicyName: policyName, PolicyDocument: JSON.parse(decodeURIComponent(policyData.PolicyDocument)) })
+                        })
+                    })
+                })).then(results => resolve(results.flat()))
+            })
+        } else {
+            resolve([])
+        }
+    })
+}
+
 const finishWithErrors = function (opName, err) {
     opName = `${CBEGIN}Simplify${CRESET} | ${opName}` || `${CBEGIN}Simplify${CRESET} | unknownOperation`
     console.error(`${opName}: \n - ${CERROR}${err}${CRESET} \n`)
@@ -1291,6 +1311,7 @@ module.exports = {
     getFunctionMetricStatistics,
     getFunctionMetricData,
     publishFunctionVersion,
+    getFunctionRolePolicies,
     updateFunctionRolePolicy,
     deleteFunctionRolePolicy,
     createOrUpdateFunctionRole,

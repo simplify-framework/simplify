@@ -4,7 +4,8 @@ const path = require('path')
 const crypto = require('crypto')
 const fs = require('fs')
 const AdmZip = require('adm-zip')
-const utilities = require('./utilities')
+const utilities = require('./utilities');
+const { resolve } = require('path');
 const CBEGIN = '\x1b[32m'
 const CERROR = '\x1b[31m'
 const CNOTIF = '\x1b[33m'
@@ -72,8 +73,8 @@ const getContentArgs = function (...args) {
             v = v.replace(new RegExp('\\${' + e + '}', 'g'), process.env[e])
         })
         v = v.replace(/\${DATE_TODAY}/g, utilities.getDateToday()).replace(/\${TIME_MOMENT}/g, utilities.getTimeMoment())
-        if (typeof args[args.length-1] === 'boolean' && args[args.length-1] === true) {
-            v = v.replace(new RegExp(/ *\{[^)]*\} */, 'g'), `(not set)`).replace(new RegExp('\\$', 'g'),'')
+        if (typeof args[args.length - 1] === 'boolean' && args[args.length - 1] === true) {
+            v = v.replace(new RegExp(/ *\{[^)]*\} */, 'g'), `(not set)`).replace(new RegExp('\\$', 'g'), '')
         }
         return v
     }
@@ -406,7 +407,7 @@ const uploadLocalFile = function (options) {
             consoleWithMessage(`${opName}-ReadFile`, `${inputLocalFile.truncate(50)}`)
             fs.readFile(inputLocalFile, function (err, data) {
                 if (err) throw err;
-                adaptor.createBucket(function (err) {
+                adaptor.createBucket({ ACL: 'private' }, function (err) {
                     var params = {
                         Key: bucketKey ? (bucketKey + '/' + uploadFileName) : uploadFileName,
                         Body: data
@@ -415,17 +416,27 @@ const uploadLocalFile = function (options) {
                         params.Bucket = bucketName
                     }
                     if (!err || (err.code == 'BucketAlreadyOwnedByYou')) {
-                        consoleWithMessage(`\t Uploading-InProgress`, `\t${0} %`);
-                        adaptor.upload(params).on('httpUploadProgress', event => {
-                            consoleWithMessage(`\t Uploading-InProgress`, `\t${parseInt(100 * event.loaded / event.total)} %`);
-                        }).send((err, data) => {
-                            if (err) {
-                                consoleWithMessage(`${opName}-FileUpload`, `${CERROR}(ERROR)${CRESET} ${err}`)
-                                reject(err)
-                            } else {
-                                consoleWithMessage(`${opName}-FileUpload`, `${data.Location.truncate(50)}`)
-                                resolve({ ...data })
+                        adaptor.putPublicAccessBlock({
+                            Bucket: bucketName,
+                            PublicAccessBlockConfiguration: {
+                                BlockPublicAcls: true,
+                                BlockPublicPolicy: true,
+                                IgnorePublicAcls: true,
+                                RestrictPublicBuckets: true
                             }
+                        }, function () {
+                            consoleWithMessage(`\t Uploading-InProgress`, `\t${0} %`);
+                            adaptor.upload(params).on('httpUploadProgress', event => {
+                                consoleWithMessage(`\t Uploading-InProgress`, `\t${parseInt(100 * event.loaded / event.total)} %`);
+                            }).send((err, data) => {
+                                if (err) {
+                                    consoleWithMessage(`${opName}-FileUpload`, `${CERROR}(ERROR)${CRESET} ${err}`)
+                                    reject(err)
+                                } else {
+                                    consoleWithMessage(`${opName}-FileUpload`, `${data.Location.truncate(50)}`)
+                                    resolve({ ...data })
+                                }
+                            })
                         })
                     } else {
                         consoleWithMessage(`${opName}-CreateBucket`, `${CERROR}(ERROR)${CRESET} ${err}`)
@@ -440,7 +451,7 @@ const uploadLocalFile = function (options) {
 }
 
 const uploadDirectoryAsZip = function (options) {
-    var { adaptor, opName, bucketKey, inputDirectory, outputFilePath, hashInfo, fileName } = options
+    var { adaptor, opName, bucketKey, inputDirectory, outputFilePath, zippedDirectory, hashInfo, fileName } = options
     opName = opName || `uploadDirectoryAsZip`
     var outputZippedFile = `${fileName || utilities.getDateToday()}.zip`
     var outputZippedFilePath = path.join(outputFilePath, outputZippedFile)
@@ -450,7 +461,7 @@ const uploadDirectoryAsZip = function (options) {
             if (!fs.existsSync(outputFilePath)) {
                 fs.mkdirSync(outputFilePath, { recursive: true })
             }
-            zip.addLocalFolder(inputDirectory)
+            zip.addLocalFolder(inputDirectory, zippedDirectory)
             zip.writeZip(outputZippedFilePath)
             consoleWithMessage(`${opName}-ZipFile`, `${inputDirectory.truncate(30)} > ${outputZippedFilePath.truncate(30)}`)
             const zipBuffer = Buffer.concat(zip.getEntries().map(e => {
@@ -494,30 +505,30 @@ const createOrUpdateFunction = function (options) {
                         if (err) {
                             reject(err)
                         } else {
-                            adaptor.waitFor('functionUpdated', { FunctionName: data.FunctionArn }, function(err, data) {
+                            adaptor.waitFor('functionUpdated', { FunctionName: data.FunctionArn }, function (err, data) {
                                 if (err) {
                                     reject(err);
                                 } else {
                                     consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${CDONE}(OK)${CRESET}`);
                                     adaptor.updateFunctionCode({
-                                         FunctionName: functionConfig.FunctionName,
-                                         S3Bucket: bucketName,
-                                         S3Key: bucketKey
-                                     }, function (err, data) {
-                                         if (err) {
-                                             consoleWithMessage(`${opName}-UpdateFunctionCode`, `${CERROR}(ERROR)${CRESET} ${err}`);
-                                             reject(err)
-                                         } else {
-                                             adaptor.waitFor('functionUpdated', { FunctionName: data.FunctionArn }, function(err, data) {
+                                        FunctionName: functionConfig.FunctionName,
+                                        S3Bucket: bucketName,
+                                        S3Key: bucketKey
+                                    }, function (err, data) {
+                                        if (err) {
+                                            consoleWithMessage(`${opName}-UpdateFunctionCode`, `${CERROR}(ERROR)${CRESET} ${err}`);
+                                            reject(err)
+                                        } else {
+                                            adaptor.waitFor('functionUpdated', { FunctionName: data.FunctionArn }, function (err, data) {
                                                 if (err) {
                                                     reject(err);
                                                 } else {
-                                                     consoleWithMessage(`${opName}-UpdateFunctionCode`, `${CDONE}(OK)${CRESET}`);
-                                                     resolve(data)
+                                                    consoleWithMessage(`${opName}-UpdateFunctionCode`, `${CDONE}(OK)${CRESET}`);
+                                                    resolve(data)
                                                 }
-                                             });
-                                         }
-                                     });
+                                            });
+                                        }
+                                    });
                                 }
                             });
                         }
@@ -531,7 +542,7 @@ const createOrUpdateFunction = function (options) {
                                 reject(`Create Function Timeout with (Error): ${err}`)
                             } else if (!err) {
                                 resolve({ ...data });
-                                adaptor.waitFor('functionActive', { FunctionName: data.FunctionArn }, function(err, data) {
+                                adaptor.waitFor('functionActive', { FunctionName: data.FunctionArn }, function (err, data) {
                                     if (err) {
                                         reject(err);
                                     } else {
@@ -547,7 +558,7 @@ const createOrUpdateFunction = function (options) {
                     retryCreateFunction()
                 }
             } else {
-                adaptor.waitFor('functionActive', { FunctionName: data.FunctionArn }, function(err, data) {
+                adaptor.waitFor('functionActive', { FunctionName: data.FunctionArn }, function (err, data) {
                     if (err) {
                         reject(err);
                     } else {
@@ -566,7 +577,7 @@ const updateFunctionConfiguration = function (options) {
     return new Promise(function (resolve, reject) {
         const unusedProps = ["Code", "Publish", "Tags"]
         unusedProps.forEach(function (k) { delete functionConfig[k] })
-        adaptor.waitFor('functionActive', { FunctionName: functionConfig.FunctionName }, function(err, data) {
+        adaptor.waitFor('functionActive', { FunctionName: functionConfig.FunctionName }, function (err, data) {
             if (err) {
                 reject(err);
             } else {
@@ -575,7 +586,7 @@ const updateFunctionConfiguration = function (options) {
                         consoleWithMessage(`${opName}-UpdateFunctionConfig`, `${CERROR}(ERROR)${CRESET} ${err}`);
                         reject(err)
                     } else {
-                        adaptor.waitFor('functionUpdated', { FunctionName: data.FunctionArn }, function(err, data) {
+                        adaptor.waitFor('functionUpdated', { FunctionName: data.FunctionArn }, function (err, data) {
                             if (err) {
                                 reject(err);
                             } else {
@@ -596,7 +607,7 @@ const getFunctionConfiguration = function (options) {
     return new Promise(function (resolve, reject) {
         adaptor.getFunctionConfiguration({
             FunctionName: functionConfig.FunctionName,
-            Qualifier: functionConfig.Qualifier
+            Qualifier: functionConfig.Version == '$LATEST' ? undefined : functionConfig.Version
         }, function (err, functionData) {
             err ? reject(err) : resolve(functionData)
         })
@@ -675,13 +686,56 @@ const createFunctionLayerVersion = function (options) {
     })
 }
 
+const getFunctionRolePolicies = function (options) {
+    var { adaptor, opName, functionConfig } = options
+    opName = opName || `getFunctionRolePolicies`
+    return new Promise(function (resolve, reject) {
+        if (functionConfig.Role) {
+            const roleName = functionConfig.Role.split('/')[1].trim()
+            adaptor.listRolePolicies({ RoleName: roleName }, function (err, roleData) {
+                if (!err && roleData) {
+                    Promise.all(roleData.PolicyNames.map(policyName => {
+                        return new Promise((resolve) => {
+                            adaptor.getRolePolicy({ RoleName: roleName, PolicyName: `${policyName}` }, function (err, policyData) {
+                                err ? resolve({}) : resolve({ RoleName: roleName, PolicyName: policyName, PolicyDocument: JSON.parse(decodeURIComponent(policyData.PolicyDocument)) })
+                            })
+                        })
+                    })).then(results => resolve(results.flat()))
+                } else {
+                    resolve([])
+                }
+            })
+        } else {
+            resolve([])
+        }
+    })
+}
+
+const getFunctionPolicy = function (options) {
+    var { adaptor, opName, functionConfig } = options
+    opName = opName || `getFunctionPolicy`
+    return new Promise(function (resolve, reject) {
+        if (functionConfig.FunctionName) {
+            adaptor.getPolicy({
+                FunctionName: functionConfig.FunctionName,
+                Qualifier: functionConfig.Version == '$LATEST' ? undefined : functionConfig.Version
+            }, function (err, data) {
+                if (err) reject(err)
+                else resolve(data)
+            });
+        } else {
+            reject({ message: 'Unspecifing required FunctionName parameter.' })
+        }
+    })
+}
+
 const getFunctionMetaInfos = function (options) {
     var { adaptor, logger, opName, functionConfig, silentIs } = options
     opName = opName || `getFunctionMetaInfos`
     return new Promise(function (resolve, reject) {
         var params = {
             FunctionName: functionConfig.FunctionName,
-            Qualifier: functionConfig.Qualifier
+            Qualifier: functionConfig.Version == '$LATEST' ? undefined : functionConfig.Version
         };
         consoleWithMessage(`${opName}-GetFunction`, `${functionConfig.FunctionName.truncate(50)}`, silentIs);
         adaptor.getFunction(params, function (err, data) {
@@ -1220,26 +1274,6 @@ const getFunctionMetricData = function (options) {
     })
 }
 
-const getFunctionRolePolicies = function (options) {
-    var { adaptor, logger, opName, functionConfig } = options
-    return new Promise(function (resolve, reject) {
-        if (functionConfig.Role) {
-            const roleName = functionConfig.Role.split('/')[1].trim()
-            adaptor.listRolePolicies({ RoleName: roleName }, function (err, roleData) {
-                Promise.all(roleData.PolicyNames.map(policyName => {
-                    return new Promise((resolve) => {
-                        adaptor.getRolePolicy({ RoleName: roleName, PolicyName: `${policyName}` }, function (err, policyData) {
-                            err ? resolve({}) : resolve({ RoleName: roleName, PolicyName: policyName, PolicyDocument: JSON.parse(decodeURIComponent(policyData.PolicyDocument)) })
-                        })
-                    })
-                })).then(results => resolve(results.flat()))
-            })
-        } else {
-            resolve([])
-        }
-    })
-}
-
 const finishWithErrors = function (opName, err) {
     opName = `${CBEGIN}Simplify${CRESET} | ${opName}` || `${CBEGIN}Simplify${CRESET} | unknownOperation`
     console.error(`${opName}: \n - ${CERROR}${err}${CRESET} \n`)
@@ -1273,16 +1307,45 @@ const consoleWithErrors = function (opName, error, silent) {
 }
 
 const listFunctionsInfo = function (options) {
-    var { adaptor, opName, searchKey } = options
-    opName = opName || `getFunctionConfiguration`
-    return new Promise(function (resolve, reject) {
-        adaptor.listFunctions({
-            FunctionVersion: options.FunctionVersion || 'ALL',
-            MasterRegion: options.MasterRegion,
-            MaxItems: options.MaxItems || 50,
-            Marker: options.Marker
-        }, function (err, functions) {
-            err ? reject(err) : resolve(functions.Functions.map(f => searchKey && f.FunctionName.indexOf(searchKey) >= 0 || !searchKey ? { FunctionArn: f.FunctionArn, Version: f.Version, KMSKeyArn: f.KMSKeyArn }: undefined).filter(x =>x))
+    var { adaptor, opName, searchFor } = options
+    opName = opName || `listFunctionsInfo`
+    function validateSearchCondition(searchFor, f) {
+        const searchForMultiple = (searchFor || "").split(',')
+        return searchForMultiple.length == 0 ? f : searchForMultiple.find(s => (s && f.FunctionName.indexOf(s) >= 0) && f.Version == '$LATEST')
+    }
+    function listNexFunctions(options) {
+        return new Promise(function (resolve, reject) {
+            adaptor.listFunctions({
+                FunctionVersion: 'ALL',
+                MasterRegion: options.MasterRegion,
+                MaxItems: options.MaxItems || 50,
+                Marker: options.Marker
+            }, function (err, result) {
+                err ? reject(err) : resolve({
+                    NextMarker: result.NextMarker,
+                    Functions: result.Functions.map(f => validateSearchCondition(searchFor, f) ? f : undefined).filter(x => x)
+                })
+            })
+        })
+    }
+    return new Promise(function (resolve) {
+        let functionList = []
+        function recusiveGetFunctions(options, callback) {
+            listNexFunctions(options).then(result => {
+                if (result.NextMarker) {
+                    options.Marker = result.NextMarker
+                    functionList = functionList.concat(result.Functions.filter(x => x))
+                    if (result.Functions.length) {
+                        consoleWithMessage(opName, `Searching for "${searchFor}" in FunctionName: ${functionList.length} result${functionList.length > 1 ? 's' : ''}.`, false)
+                    }
+                    recusiveGetFunctions(options, callback)
+                } else {
+                    callback(functionList)
+                }
+            })
+        }
+        recusiveGetFunctions(options, function (functionList) {
+            resolve(functionList)
         })
     })
 }
@@ -1296,6 +1359,7 @@ module.exports = {
     getInputConfig,
     uploadLocalFile,
     listFunctionsInfo,
+    getFunctionPolicy,
     getFunctionSha256,
     uploadLocalDirectory,
     uploadDirectoryAsZip,
@@ -1309,9 +1373,9 @@ module.exports = {
     updateFunctionConfiguration,
     getFunctionConfiguration,
     getFunctionMetricStatistics,
+    getFunctionRolePolicies,
     getFunctionMetricData,
     publishFunctionVersion,
-    getFunctionRolePolicies,
     updateFunctionRolePolicy,
     deleteFunctionRolePolicy,
     createOrUpdateFunctionRole,
@@ -1330,4 +1394,6 @@ module.exports = {
     finishWithErrors
 }
 
-process.env.DISABLE_BOX_BANNER || showBoxBanner()
+if (require.main === module) {
+    process.env.DISABLE_BOX_BANNER || showBoxBanner()
+}

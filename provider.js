@@ -33,15 +33,18 @@ module.exports = {
                     } else {
                         AWS.config.update({ credentials: credentials });
                         console.log(`${CBEGIN}Simplify${CRESET} | AWSProvider-Credentials: ${AWS.config.credentials.profile ? AWS.config.credentials.profile : 'default'}`)
-                        s3BucketParams.Bucket = (config.Bucket || {}).Name
-                        if (config.Region != 'us-east-1') {
-                            s3BucketParams.CreateBucketConfiguration = {
-                                LocationConstraint: config.Region
+                        if (config.Bucket) {
+                            s3BucketParams.Bucket = (config.Bucket || {}).Name
+                            s3BucketParams.ACL = 'private'
+                            if (config.Region != 'us-east-1') {
+                                s3BucketParams.CreateBucketConfiguration = {
+                                    LocationConstraint: config.Region
+                                }
                             }
-                        }
-                        if (config.ServerSideEncryption && config.SSEKMSKeyId) {
-                            s3BucketParams.ServerSideEncryption = config.ServerSideEncryption
-                            s3BucketParams.SSEKMSKeyId = config.SSEKMSKeyId
+                            if (config.ServerSideEncryption && config.SSEKMSKeyId) {
+                                s3BucketParams.ServerSideEncryption = config.ServerSideEncryption
+                                s3BucketParams.SSEKMSKeyId = config.SSEKMSKeyId
+                            }
                         }
                         awsconfig = config
                         resolve(AWS.config.credentials)

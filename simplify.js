@@ -1274,9 +1274,9 @@ const getFunctionMetricData = function (options) {
     })
 }
 
-const finishWithErrors = function (opName, err) {
+const finishWithErrors = function (opName, error) {
     opName = `${CBEGIN}Simplify${CRESET} | ${opName}` || `${CBEGIN}Simplify${CRESET} | unknownOperation`
-    console.error(`${opName}: \n - ${CERROR}${err}${CRESET} \n`)
+    console.error(`${opName}: \n - ${CERROR}${(error.message || error).truncate(150)}${CRESET} \n`)
     process.exit(255)
 }
 

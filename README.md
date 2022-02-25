@@ -97,3 +97,5 @@ provider.setConfig(config).then(sessionCreds => {
     })
 })
 ```
+
+Thí library curently support for AWS Lambda only.

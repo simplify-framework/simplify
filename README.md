@@ -8,8 +8,8 @@
 By using this SDK, you can breakdown your CI/CD tool as a function. Once again, FaaS concept now being applied for DevOps process. When you are micro focused into a function, a micro CI/CD function is beside of you. You're always feel safe and be efficiency. Simplify CodeGen generates a first code for you. It works well enough until you need to customize for your best fit. Happy OpenSource ￦
 
 To start, choose one of two serverless models: OpenAPI or GraphQL 
-- [simplify-openapi](https://github.com/simplify-framework/simplify-openapi)
-- [simplify-graphql](https://github.com/simplify-framework/simplify-graphql)
+- [simplify-openapi](https://github.com/simplify-framework/openapi)
+- [simplify-graphql](https://github.com/simplify-framework/graphql)
 
 ### Simplify - JavaScript SDK ###
 
